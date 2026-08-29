@@ -21,12 +21,12 @@ def _bars(points: list[tuple[str, float]]) -> pd.DataFrame:
     )
 
 
-def test_feature_freeze_ignores_post_0910_premarket_jump() -> None:
+def test_feature_freeze_ignores_post_0925_premarket_jump() -> None:
     equity = _bars(
         [
             ("2026-08-28T20:00:00Z", 100.0),
-            ("2026-08-31T13:10:00Z", 102.0),
-            ("2026-08-31T13:11:00Z", 150.0),
+            ("2026-08-31T13:25:00Z", 102.0),
+            ("2026-08-31T13:26:00Z", 150.0),
             ("2026-08-31T13:30:00Z", 103.0),
             ("2026-08-31T13:40:00Z", 104.0),
             ("2026-08-31T14:10:00Z", 105.0),
@@ -36,7 +36,7 @@ def test_feature_freeze_ignores_post_0910_premarket_jump() -> None:
     btc = _bars(
         [
             ("2026-08-28T20:00:00Z", 100_000.0),
-            ("2026-08-31T13:10:00Z", 102_000.0),
+            ("2026-08-31T13:25:00Z", 102_000.0),
         ]
     )
 

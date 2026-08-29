@@ -53,7 +53,7 @@ def _session_raw_row(
         return None
     prior_ts, prior_close = prior
 
-    freeze = _utc(session_date, time(9, 10))
+    freeze = _utc(session_date, time(9, 25))
     premarket_start = _utc(session_date, time(4, 0))
     premarket = equity[(equity.index >= premarket_start) & (equity.index <= freeze)]
     if premarket.empty:

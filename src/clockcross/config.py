@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     db_path: Path = Path("data/clockcross.sqlite3")
     artifacts_dir: Path = Path("artifacts")
     timezone: str = "America/New_York"
-    feature_freeze_time: time = time(9, 10)
+    feature_freeze_time: time = time(9, 25)
     opening_start_time: time = time(9, 30)
     confirmation_end_time: time = time(9, 40)
     decision_time: time = time(9, 55)
