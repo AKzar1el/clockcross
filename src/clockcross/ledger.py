@@ -55,10 +55,7 @@ def _decode(value: str | None) -> dict[str, Any]:
 class Ledger:
     """Durable SQLite audit ledger with idempotent episode and order identities."""
 
-    _COUNTABLE_TABLES = {
-        "episodes", "transitions", "features", "agent_decisions",
-        "risk_decisions", "orders", "marks",
-    }
+    _COUNTABLE_TABLES = {"episodes", "transitions", "features", "agent_decisions", "risk_decisions", "orders", "marks"}
 
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
@@ -76,53 +73,39 @@ class Ledger:
         self._conn.executescript(
             """
             CREATE TABLE IF NOT EXISTS episodes (
-                episode_id TEXT PRIMARY KEY,
-                session_date TEXT NOT NULL,
-                underlying TEXT NOT NULL,
-                state TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
+                episode_id TEXT PRIMARY KEY, session_date TEXT NOT NULL, underlying TEXT NOT NULL,
+                state TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
                 UNIQUE(session_date, underlying)
             );
             CREATE TABLE IF NOT EXISTS transitions (
                 transition_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 episode_id TEXT NOT NULL REFERENCES episodes(episode_id) ON DELETE CASCADE,
-                from_state TEXT NOT NULL,
-                to_state TEXT NOT NULL,
-                event TEXT NOT NULL,
-                payload_json TEXT NOT NULL DEFAULT '{}',
-                created_at TEXT NOT NULL
+                from_state TEXT NOT NULL, to_state TEXT NOT NULL, event TEXT NOT NULL,
+                payload_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS features (
                 episode_id TEXT PRIMARY KEY REFERENCES episodes(episode_id) ON DELETE CASCADE,
-                payload_json TEXT NOT NULL,
-                created_at TEXT NOT NULL
+                payload_json TEXT NOT NULL, created_at TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS agent_decisions (
                 episode_id TEXT PRIMARY KEY REFERENCES episodes(episode_id) ON DELETE CASCADE,
-                payload_json TEXT NOT NULL,
-                created_at TEXT NOT NULL
+                payload_json TEXT NOT NULL, created_at TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS risk_decisions (
                 episode_id TEXT PRIMARY KEY REFERENCES episodes(episode_id) ON DELETE CASCADE,
-                payload_json TEXT NOT NULL,
-                created_at TEXT NOT NULL
+                payload_json TEXT NOT NULL, created_at TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS orders (
                 order_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 episode_id TEXT NOT NULL REFERENCES episodes(episode_id) ON DELETE CASCADE,
-                client_order_id TEXT NOT NULL UNIQUE,
-                alpaca_order_id TEXT,
-                status TEXT NOT NULL,
-                payload_json TEXT NOT NULL DEFAULT '{}',
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                client_order_id TEXT NOT NULL UNIQUE, alpaca_order_id TEXT,
+                status TEXT NOT NULL, payload_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL, updated_at TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS marks (
                 mark_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 episode_id TEXT NOT NULL REFERENCES episodes(episode_id) ON DELETE CASCADE,
-                marked_at TEXT NOT NULL,
-                value TEXT NOT NULL,
+                marked_at TEXT NOT NULL, value TEXT NOT NULL,
                 payload_json TEXT NOT NULL DEFAULT '{}'
             );
             """
@@ -132,23 +115,16 @@ class Ledger:
     @staticmethod
     def _episode(row: sqlite3.Row) -> EpisodeRecord:
         return EpisodeRecord(
-            episode_id=row["episode_id"],
-            session_date=date.fromisoformat(row["session_date"]),
-            underlying=row["underlying"],
-            state=EpisodeState(row["state"]),
-            created_at=datetime.fromisoformat(row["created_at"]),
-            updated_at=datetime.fromisoformat(row["updated_at"]),
+            episode_id=row["episode_id"], session_date=date.fromisoformat(row["session_date"]),
+            underlying=row["underlying"], state=EpisodeState(row["state"]),
+            created_at=datetime.fromisoformat(row["created_at"]), updated_at=datetime.fromisoformat(row["updated_at"]),
         )
 
     @staticmethod
     def _order(row: sqlite3.Row) -> OrderRecord:
         return OrderRecord(
-            order_id=int(row["order_id"]),
-            episode_id=row["episode_id"],
-            client_order_id=row["client_order_id"],
-            alpaca_order_id=row["alpaca_order_id"],
-            status=row["status"],
-            payload=_decode(row["payload_json"]),
+            order_id=int(row["order_id"]), episode_id=row["episode_id"], client_order_id=row["client_order_id"],
+            alpaca_order_id=row["alpaca_order_id"], status=row["status"], payload=_decode(row["payload_json"]),
             created_at=datetime.fromisoformat(row["created_at"]),
         )
 
@@ -228,6 +204,12 @@ class Ledger:
 
     def get_order_by_client_id(self, client_order_id: str) -> OrderRecord | None:
         row = self._conn.execute("SELECT * FROM orders WHERE client_order_id = ?", (client_order_id,)).fetchone()
+        return None if row is None else self._order(row)
+
+    def get_latest_order_for_episode(self, episode_id: str) -> OrderRecord | None:
+        row = self._conn.execute(
+            "SELECT * FROM orders WHERE episode_id = ? ORDER BY order_id DESC LIMIT 1", (episode_id,)
+        ).fetchone()
         return None if row is None else self._order(row)
 
     def update_order(self, client_order_id: str, *, alpaca_order_id: str | None, status: str, payload: dict[str, Any] | None = None) -> OrderRecord:
