@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import time
+from decimal import Decimal
 from pathlib import Path
 from typing import Literal
 
@@ -23,6 +24,13 @@ class Settings(BaseSettings):
     llm_base_url: AnyHttpUrl = "https://api.featherless.ai/v1"
     llm_api_key: str | None = None
     llm_model: str | None = None
+    clockcross_account_role: Literal["development", "competition"] = "development"
+    clockcross_allow_dev_order: bool = False
+    competition_starting_equity: Decimal = Decimal("100000")
+    research_verdict_path: Path = Path("artifacts/research/verdict.json")
+    live_signal_policy_path: Path = Path("docs/research/2026-08-29-live-signal-policy.json")
+    mutation_spec_path: Path = Path("docs/superpowers/specs/2026-08-29-coin-options-mutation.md")
+    research_config_hash: str = "2b452f02bea99067"
     db_path: Path = Path("data/clockcross.sqlite3")
     artifacts_dir: Path = Path("artifacts")
     timezone: str = "America/New_York"
