@@ -20,6 +20,7 @@ from clockcross.research.validation import (
     ResearchVerdict,
     evaluate_residual_strategy,
 )
+from clockcross.runtime_cli import execute_runtime_command, register_runtime_subcommands
 
 
 def _utc_start(day: date) -> datetime:
@@ -119,7 +120,11 @@ def run_research_from_api(start: date, end: date, output_dir: Path) -> int:
             finish,
             feed=settings.historical_stock_feed,
         ),
-        crypto_fetcher=lambda symbol, begin, finish: rest.fetch_crypto_bars(symbol, begin, finish),
+        crypto_fetcher=lambda symbol, begin, finish: rest.fetch_crypto_bars(
+            symbol,
+            begin,
+            finish,
+        ),
         cache_root=settings.artifacts_dir,
         stock_feed=settings.historical_stock_feed,
     )
@@ -217,7 +222,10 @@ def run_research_from_api(start: date, end: date, output_dir: Path) -> int:
         )
         lines.append(f"- {symbol}: {coverage_text}")
     lines.extend(["", "## Symbol verdicts", ""])
-    lines.extend(f"- {symbol}: `{result.verdict.value}`" for symbol, result in results.items())
+    lines.extend(
+        f"- {symbol}: `{result.verdict.value}`"
+        for symbol, result in results.items()
+    )
     (output_dir / "initial-verdict.md").write_text("\n".join(lines) + "\n")
     return 0
 
@@ -228,7 +236,12 @@ def build_parser() -> argparse.ArgumentParser:
     research = subparsers.add_parser("research")
     research.add_argument("--start", required=True, type=date.fromisoformat)
     research.add_argument("--end", required=True, type=date.fromisoformat)
-    research.add_argument("--output-dir", type=Path, default=Path("artifacts/research"))
+    research.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("artifacts/research"),
+    )
+    register_runtime_subcommands(subparsers)
     return parser
 
 
@@ -236,6 +249,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "research":
         return run_research_from_api(args.start, args.end, args.output_dir)
+    runtime_rc = execute_runtime_command(args)
+    if runtime_rc is not None:
+        return runtime_rc
     raise AssertionError(f"unhandled command: {args.command}")
 
 
