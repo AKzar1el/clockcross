@@ -9,7 +9,7 @@ from typing import Any, Protocol
 import httpx
 
 from clockcross.domain import RiskDecision, SpreadCandidate
-from clockcross.ledger import Ledger
+from clockcross.ledger import Ledger, OrderRecord
 
 PAPER_TRADING_URL = "https://paper-api.alpaca.markets"
 
@@ -133,21 +133,22 @@ class ExecutionService:
         alpaca_order_id, status = _remote_fields(remote)
         existing = self._ledger.get_order_by_client_id(client_order_id)
         if existing is None:
-            self._ledger.record_order(
-                episode_id,
-                client_order_id=client_order_id,
-                alpaca_order_id=alpaca_order_id,
-                status=status,
-                payload={"provider_status": status},
-            )
+            self._ledger.record_order(episode_id, client_order_id=client_order_id, alpaca_order_id=alpaca_order_id, status=status, payload={"provider_status": status})
         else:
-            self._ledger.update_order(
-                client_order_id,
-                alpaca_order_id=alpaca_order_id,
-                status=status,
-                payload={"provider_status": status},
-            )
+            self._ledger.update_order(client_order_id, alpaca_order_id=alpaca_order_id, status=status, payload={"provider_status": status})
         return ExecutionResult(client_order_id=client_order_id, alpaca_order_id=alpaca_order_id, status=status, reconciled=reconciled)
+
+    def reconcile(self, order: OrderRecord) -> ExecutionResult:
+        remote = self._trading.get_by_client_order_id(order.client_order_id)
+        if remote is None:
+            self._ledger.update_order(
+                order.client_order_id,
+                alpaca_order_id=order.alpaca_order_id,
+                status="indeterminate",
+                payload={"reason": "reconciliation_lookup_missing"},
+            )
+            raise IndeterminateOrderError(order.client_order_id)
+        return self._record_remote(order.episode_id, order.client_order_id, remote, reconciled=True)
 
     def submit(self, episode_id: str, candidate: SpreadCandidate, risk: RiskDecision) -> ExecutionResult:
         if not risk.approved:
