@@ -1,0 +1,20 @@
+{
+  "policy_id": "coin-continuation-beta40-raw1pct-2026-08-29",
+  "mutation_id": "coin-options-2026-08-29",
+  "source_coin_verdict_sha256": "357c415ebf971f94a5b10459b6fe435e4221779729c37a0dbd6ffd841a8aadfd",
+  "source_overall_verdict_sha256": "3eefeaf7fa1fc40938a3aa1f0f757cdc90548375ea19074b1da43c7391ab974d",
+  "selection_rule": "modal selected continuation configuration among chronological folds whose test_end is in 2026",
+  "supporting_fold_count": 5,
+  "eligible_2026_ending_continuation_fold_count": 7,
+  "underlying": "COIN",
+  "crypto_driver": "BTC/USD",
+  "thesis": "continuation",
+  "beta_lookback": 40,
+  "normalization": "raw",
+  "threshold": 0.01,
+  "horizon": "forward_60m_return",
+  "feature_freeze_et": "09:25:00",
+  "confirmation_end_et": "09:40:00",
+  "decision_time_et": "09:55:00",
+  "note": "This policy freezes the modal recent configuration after the explicitly approved MUTATE decision. It is not a standalone performance claim and does not rewrite the original friction failure."
+}
