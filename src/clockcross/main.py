@@ -35,8 +35,74 @@ def _business_dates(start: date, end: date) -> list[date]:
 
 
 def _promotion_signal_floor(valid_sessions: int) -> tuple[int, str]:
+    # Chosen only after coverage is measured. Ten percent of the valid sample,
+    # with a small anti-anecdote floor, is explicit and recorded in the artifact.
     floor = max(8, int(round(valid_sessions * 0.10)))
     return floor, f"max(8, round(10% of {valid_sessions} valid sessions))"
+
+
+def _build_episode_family(
+    btc: pd.DataFrame,
+    equity: pd.DataFrame,
+    sessions: Sequence[date],
+    lookbacks: tuple[int, ...],
+) -> dict[int, pd.DataFrame]:
+    return {
+        lookback: build_episode_frame(
+            btc,
+            equity,
+            sessions=sessions,
+            beta_lookback=lookback,
+        )
+        for lookback in lookbacks
+    }
+
+
+def _aggregate_symbol_verdicts(verdicts: dict[str, ResearchVerdict]) -> ResearchVerdict:
+    required = {"COIN", "MSTR"}
+    if set(verdicts) != required:
+        return ResearchVerdict.KILL
+    values = [verdicts[symbol] for symbol in sorted(required)]
+    if all(value is ResearchVerdict.GO for value in values):
+        return ResearchVerdict.GO
+    if all(value is ResearchVerdict.KILL for value in values):
+        return ResearchVerdict.KILL
+    return ResearchVerdict.MUTATE
+
+
+def _family_valid_capacity(family: dict[int, pd.DataFrame]) -> int:
+    return min(int(frame["residual"].notna().sum()) for frame in family.values())
+
+
+def _has_enough_history(valid_sessions: int, config: EvaluationConfig) -> bool:
+    return valid_sessions >= config.min_train + config.test_size
+
+
+def _write_insufficient_history(
+    output_dir: Path,
+    *,
+    coverage: dict[str, dict[int, int]],
+    required_sessions: int,
+) -> None:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "verdict": ResearchVerdict.MUTATE.value,
+        "reason": "insufficient_history",
+        "required_common_sessions": required_sessions,
+        "coverage": {
+            symbol: {str(lookback): count for lookback, count in family.items()}
+            for symbol, family in coverage.items()
+        },
+    }
+    (output_dir / "verdict.json").write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n"
+    )
+    (output_dir / "initial-verdict.md").write_text(
+        "# ClockCross Initial Research Verdict\n\n"
+        "**Overall verdict:** `MUTATE`\n\n"
+        "The available synchronized history cannot form one complete chronological "
+        f"train/test fold. Required common sessions: {required_sessions}.\n"
+    )
 
 
 def run_research_from_api(start: date, end: date, output_dir: Path) -> int:
@@ -66,29 +132,46 @@ def run_research_from_api(start: date, end: date, output_dir: Path) -> int:
         for symbol in ("COIN", "MSTR", "QQQ")
     }
     sessions = _business_dates(start, end)
+    lookbacks = EvaluationConfig().beta_lookbacks
     episode_frames = {
-        symbol: build_episode_frame(btc, frame, sessions=sessions, beta_lookback=20)
+        symbol: _build_episode_family(btc, frame, sessions, lookbacks)
         for symbol, frame in stock_frames.items()
     }
 
-    valid_capacity = min(len(episode_frames["COIN"]), len(episode_frames["MSTR"]))
+    base_config = EvaluationConfig()
+    coverage = {
+        symbol: {
+            lookback: int(frame["residual"].notna().sum())
+            for lookback, frame in family.items()
+        }
+        for symbol, family in episode_frames.items()
+    }
+    valid_capacity = min(
+        _family_valid_capacity(episode_frames["COIN"]),
+        _family_valid_capacity(episode_frames["MSTR"]),
+        _family_valid_capacity(episode_frames["QQQ"]),
+    )
+    if not _has_enough_history(valid_capacity, base_config):
+        _write_insufficient_history(
+            output_dir,
+            coverage=coverage,
+            required_sessions=base_config.min_train + base_config.test_size,
+        )
+        return 2
+
     min_signals, rationale = _promotion_signal_floor(valid_capacity)
     config = EvaluationConfig(min_total_signals=min_signals)
 
     qqq = episode_frames["QQQ"]
     results = {
-        symbol: evaluate_residual_strategy(frame, config, control_frame=qqq)
-        for symbol, frame in episode_frames.items()
+        symbol: evaluate_residual_strategy(family, config, control_frame=qqq)
+        for symbol, family in episode_frames.items()
         if symbol in {"COIN", "MSTR"}
     }
 
-    verdicts = {result.verdict for result in results.values()}
-    if ResearchVerdict.GO in verdicts:
-        overall = ResearchVerdict.GO
-    elif ResearchVerdict.MUTATE in verdicts:
-        overall = ResearchVerdict.MUTATE
-    else:
-        overall = ResearchVerdict.KILL
+    overall = _aggregate_symbol_verdicts(
+        {symbol: result.verdict for symbol, result in results.items()}
+    )
 
     output_dir.mkdir(parents=True, exist_ok=True)
     for symbol, result in results.items():
@@ -100,7 +183,10 @@ def run_research_from_api(start: date, end: date, output_dir: Path) -> int:
 
     overall_payload = {
         "verdict": overall.value,
-        "coverage": {symbol: int(len(frame)) for symbol, frame in episode_frames.items()},
+        "coverage": {
+            symbol: {str(lookback): count for lookback, count in family.items()}
+            for symbol, family in coverage.items()
+        },
         "min_total_signals": min_signals,
         "min_total_signals_rationale": rationale,
         "historical_stock_feed": settings.historical_stock_feed,
@@ -124,7 +210,12 @@ def run_research_from_api(start: date, end: date, output_dir: Path) -> int:
         "## Coverage",
         "",
     ]
-    lines.extend(f"- {symbol}: {len(frame)} valid episodes" for symbol, frame in episode_frames.items())
+    for symbol, family in episode_frames.items():
+        coverage_text = ", ".join(
+            f"beta{lookback}={int(frame['residual'].notna().sum())}"
+            for lookback, frame in sorted(family.items())
+        )
+        lines.append(f"- {symbol}: {coverage_text}")
     lines.extend(["", "## Symbol verdicts", ""])
     lines.extend(f"- {symbol}: `{result.verdict.value}`" for symbol, result in results.items())
     (output_dir / "initial-verdict.md").write_text("\n".join(lines) + "\n")

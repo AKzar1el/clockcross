@@ -64,3 +64,49 @@ def test_equal_control_effect_kills_crypto_specific_claim() -> None:
     )
     assert result.verdict is ResearchVerdict.KILL
     assert result.checks["control_not_equally_strong"] is False
+
+
+def test_raw_residual_thresholds_are_percentage_points_not_decimal_whole_units() -> None:
+    from clockcross.research.validation import _candidate_grid
+
+    candidates = _candidate_grid(EvaluationConfig())
+    raw_thresholds = sorted({c.threshold for c in candidates if c.normalization == "raw"})
+    z_thresholds = sorted({c.threshold for c in candidates if c.normalization == "zscore"})
+
+    assert raw_thresholds == [0.005, 0.01, 0.015]
+    assert z_thresholds == [0.5, 1.0, 1.5]
+
+
+def test_validation_selects_beta_lookback_inside_each_chronological_fold() -> None:
+    primary = {
+        10: _effect_frame(160),
+        20: pd.DataFrame(
+            {
+                "session_date": _dates(160),
+                "residual": np.tile([-2.0, 2.0], 80),
+                "forward_30m_return": np.zeros(160),
+                "forward_60m_return": np.zeros(160),
+            }
+        ),
+        40: pd.DataFrame(
+            {
+                "session_date": _dates(160),
+                "residual": np.tile([-2.0, 2.0], 80),
+                "forward_30m_return": np.zeros(160),
+                "forward_60m_return": np.zeros(160),
+            }
+        ),
+    }
+    control = {lookback: frame.copy() for lookback, frame in primary.items()}
+    for frame in control.values():
+        frame["forward_30m_return"] = 0.0
+        frame["forward_60m_return"] = 0.0
+
+    result = evaluate_residual_strategy(
+        primary,
+        EvaluationConfig(min_train=60, test_size=20, min_total_signals=20),
+        control_frame=control,
+    )
+
+    assert result.selected_configs
+    assert {config.beta_lookback for config in result.selected_configs} == {10}

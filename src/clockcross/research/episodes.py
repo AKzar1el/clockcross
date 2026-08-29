@@ -23,20 +23,26 @@ def _last_at_or_before(frame: pd.DataFrame, timestamp: pd.Timestamp) -> float | 
     return float(eligible.iloc[-1])
 
 
-def _first_at_or_after(frame: pd.DataFrame, timestamp: pd.Timestamp) -> float | None:
-    eligible = frame.loc[frame.index >= timestamp, "open"]
-    if eligible.empty:
+def _value_at(frame: pd.DataFrame, timestamp: pd.Timestamp, column: str) -> float | None:
+    if timestamp not in frame.index:
         return None
-    return float(eligible.iloc[0])
+    value = frame.loc[timestamp, column]
+    if isinstance(value, pd.Series):
+        return None
+    return float(value)
 
 
-def _prior_regular_close(equity: pd.DataFrame, session_date: date) -> tuple[pd.Timestamp, float] | None:
-    current_midnight = pd.Timestamp(datetime.combine(session_date, time(0, 0), tzinfo=ET).astimezone(UTC))
+def _prior_regular_close(
+    equity: pd.DataFrame, session_date: date
+) -> tuple[pd.Timestamp, float] | None:
+    current_midnight = pd.Timestamp(
+        datetime.combine(session_date, time(0, 0), tzinfo=ET).astimezone(UTC)
+    )
     prior = equity.loc[equity.index < current_midnight]
     if prior.empty:
         return None
     prior_et = prior.tz_convert(ET)
-    regular = prior[(prior_et.index.time >= time(9, 30)) & (prior_et.index.time <= time(16, 0))]
+    regular = prior[(prior_et.index.time >= time(9, 30)) & (prior_et.index.time < time(16, 0))]
     if regular.empty:
         return None
     timestamp = regular.index[-1]
@@ -58,10 +64,12 @@ def _session_raw_row(
     premarket = equity[(equity.index >= premarket_start) & (equity.index <= freeze)]
     if premarket.empty:
         return None
-    premarket_price = float(premarket.iloc[-1]["close"])
+    premarket_price = _value_at(equity, freeze, "open")
+    if premarket_price is None:
+        return None
 
     btc_start = _last_at_or_before(btc, prior_ts)
-    btc_end = _last_at_or_before(btc, freeze)
+    btc_end = _value_at(btc, freeze, "open")
     if btc_start is None or btc_end is None or btc_start <= 0 or prior_close <= 0:
         return None
 
@@ -71,11 +79,11 @@ def _session_raw_row(
     forward_30 = _utc(session_date, time(10, 25))
     forward_60 = _utc(session_date, time(10, 55))
 
-    open_price = _first_at_or_after(equity[equity.index <= confirmation_end], open_start)
-    confirmation_price = _last_at_or_before(equity[equity.index >= open_start], confirmation_end)
-    decision_price = _last_at_or_before(equity[equity.index >= confirmation_end], decision)
-    price_30 = _last_at_or_before(equity[equity.index >= decision], forward_30)
-    price_60 = _last_at_or_before(equity[equity.index >= decision], forward_60)
+    open_price = _value_at(equity, open_start, "open")
+    confirmation_price = _value_at(equity, confirmation_end, "open")
+    decision_price = _value_at(equity, decision, "open")
+    price_30 = _value_at(equity, forward_30, "open")
+    price_60 = _value_at(equity, forward_60, "open")
 
     btc_return = btc_end / btc_start - 1.0
     equity_premarket_return = premarket_price / prior_close - 1.0

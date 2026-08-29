@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from datetime import date
 from enum import StrEnum
-from typing import Literal
+from typing import Literal, TypeAlias
 
 import numpy as np
 import pandas as pd
@@ -31,6 +32,7 @@ class CandidateConfig:
     normalization: Literal["raw", "zscore"]
     threshold: float
     horizon: Literal["forward_30m_return", "forward_60m_return"]
+    beta_lookback: int = 20
 
 
 @dataclass(frozen=True)
@@ -51,6 +53,7 @@ class EvaluationConfig:
     min_train: int = 60
     test_size: int = 20
     min_total_signals: int = 20
+    beta_lookbacks: tuple[int, ...] = (10, 20, 40)
     thresholds: tuple[float, ...] = (0.5, 1.0, 1.5)
     normalizations: tuple[str, ...] = ("raw", "zscore")
     theses: tuple[str, ...] = ("continuation", "reversion")
@@ -92,6 +95,10 @@ class ValidationResult:
         }
 
 
+FrameFamily: TypeAlias = pd.DataFrame | Mapping[int, pd.DataFrame]
+_REQUIRED_COLUMNS = {"session_date", "residual", "forward_30m_return", "forward_60m_return"}
+
+
 def expanding_folds(dates: list[date], *, min_train: int, test_size: int) -> list[Fold]:
     if min_train <= 1 or test_size <= 0:
         raise ValueError("min_train must exceed 1 and test_size must be positive")
@@ -99,9 +106,38 @@ def expanding_folds(dates: list[date], *, min_train: int, test_size: int) -> lis
     folds: list[Fold] = []
     train_end = min_train
     while train_end + test_size <= len(ordered):
-        folds.append(Fold(train_dates=ordered[:train_end], test_dates=ordered[train_end : train_end + test_size]))
+        folds.append(
+            Fold(
+                train_dates=ordered[:train_end],
+                test_dates=ordered[train_end : train_end + test_size],
+            )
+        )
         train_end += test_size
     return folds
+
+
+def _clean_frame(frame: pd.DataFrame) -> pd.DataFrame:
+    missing = _REQUIRED_COLUMNS.difference(frame.columns)
+    if missing:
+        raise ValueError(f"missing validation columns: {sorted(missing)}")
+    clean = frame.dropna(subset=list(_REQUIRED_COLUMNS)).copy()
+    clean["session_date"] = pd.to_datetime(clean["session_date"]).dt.date
+    return clean.sort_values("session_date").reset_index(drop=True)
+
+
+def _normalize_frames(frame: FrameFamily) -> dict[int, pd.DataFrame]:
+    if isinstance(frame, pd.DataFrame):
+        return {20: _clean_frame(frame)}
+    if not frame:
+        raise ValueError("at least one beta-lookback frame is required")
+    return {int(lookback): _clean_frame(value) for lookback, value in frame.items()}
+
+
+def _common_dates(frames: Mapping[int, pd.DataFrame]) -> list[date]:
+    date_sets = [set(frame["session_date"].tolist()) for frame in frames.values()]
+    if not date_sets:
+        return []
+    return sorted(set.intersection(*date_sets))
 
 
 def _score_series(
@@ -127,20 +163,47 @@ def _score_series(
     return signed.where(scores.abs() >= config.threshold)
 
 
-def _candidate_grid(config: EvaluationConfig) -> list[CandidateConfig]:
-    return [
-        CandidateConfig(thesis=thesis, normalization=normalization, threshold=threshold, horizon=horizon)
-        for thesis in config.theses
-        for normalization in config.normalizations
-        for threshold in config.thresholds
-        for horizon in config.horizons
-    ]
+def _candidate_grid(
+    config: EvaluationConfig,
+    available_lookbacks: tuple[int, ...] | None = None,
+) -> list[CandidateConfig]:
+    lookbacks = available_lookbacks or config.beta_lookbacks
+    candidates: list[CandidateConfig] = []
+    for beta_lookback in lookbacks:
+        for thesis in config.theses:
+            for normalization in config.normalizations:
+                for threshold_level in config.thresholds:
+                    threshold = (
+                        threshold_level / 100.0
+                        if normalization == "raw"
+                        else threshold_level
+                    )
+                    for horizon in config.horizons:
+                        candidates.append(
+                            CandidateConfig(
+                                thesis=thesis,
+                                normalization=normalization,
+                                threshold=threshold,
+                                horizon=horizon,
+                                beta_lookback=beta_lookback,
+                            )
+                        )
+    return candidates
 
 
-def _select_config(train: pd.DataFrame, config: EvaluationConfig) -> CandidateConfig:
+def _select_config(
+    frames: Mapping[int, pd.DataFrame],
+    train_dates: list[date],
+    config: EvaluationConfig,
+) -> CandidateConfig:
+    available = tuple(sorted(set(frames).intersection(config.beta_lookbacks)))
+    if not available:
+        available = tuple(sorted(frames))
     best: CandidateConfig | None = None
     best_key = (-np.inf, -np.inf, 0)
-    for candidate in _candidate_grid(config):
+    for candidate in _candidate_grid(config, available):
+        frame = frames[candidate.beta_lookback]
+        train = frame[frame["session_date"].isin(train_dates)]
         signed = _score_series(train, train, candidate).dropna().to_numpy(dtype=float)
         if signed.size < 2:
             continue
@@ -150,26 +213,32 @@ def _select_config(train: pd.DataFrame, config: EvaluationConfig) -> CandidateCo
             best_key = key
             best = candidate
     if best is None:
-        return CandidateConfig("reversion", "raw", float(config.thresholds[0]), "forward_30m_return")
+        first_lookback = available[0]
+        return CandidateConfig(
+            "reversion",
+            "raw",
+            float(config.thresholds[0]) / 100.0,
+            "forward_30m_return",
+            first_lookback,
+        )
     return best
 
 
-def _evaluate_without_control(frame: pd.DataFrame, config: EvaluationConfig) -> tuple[list[FoldResult], np.ndarray]:
-    required = {"session_date", "residual", "forward_30m_return", "forward_60m_return"}
-    missing = required.difference(frame.columns)
-    if missing:
-        raise ValueError(f"missing validation columns: {sorted(missing)}")
-    clean = frame.dropna(subset=list(required)).copy()
-    clean["session_date"] = pd.to_datetime(clean["session_date"]).dt.date
-    clean = clean.sort_values("session_date").reset_index(drop=True)
-    folds = expanding_folds(clean["session_date"].tolist(), min_train=config.min_train, test_size=config.test_size)
+def _evaluate_without_control(
+    frame: FrameFamily,
+    config: EvaluationConfig,
+) -> tuple[list[FoldResult], np.ndarray]:
+    frames = _normalize_frames(frame)
+    dates = _common_dates(frames)
+    folds = expanding_folds(dates, min_train=config.min_train, test_size=config.test_size)
 
     fold_results: list[FoldResult] = []
     all_test_returns: list[float] = []
     for fold in folds:
-        train = clean[clean["session_date"].isin(fold.train_dates)]
-        test = clean[clean["session_date"].isin(fold.test_dates)]
-        selected = _select_config(train, config)
+        selected = _select_config(frames, fold.train_dates, config)
+        selected_frame = frames[selected.beta_lookback]
+        train = selected_frame[selected_frame["session_date"].isin(fold.train_dates)]
+        test = selected_frame[selected_frame["session_date"].isin(fold.test_dates)]
         signed = _score_series(train, test, selected).dropna().to_numpy(dtype=float)
         summary = summarize_returns(signed)
         all_test_returns.extend(signed.tolist())
@@ -190,10 +259,10 @@ def _evaluate_without_control(frame: pd.DataFrame, config: EvaluationConfig) -> 
 
 
 def evaluate_residual_strategy(
-    frame: pd.DataFrame,
+    frame: FrameFamily,
     config: EvaluationConfig,
     *,
-    control_frame: pd.DataFrame | None = None,
+    control_frame: FrameFamily | None = None,
 ) -> ValidationResult:
     folds, returns = _evaluate_without_control(frame, config)
     summary = summarize_returns(returns)
@@ -205,11 +274,7 @@ def evaluate_residual_strategy(
 
     positive_folds = sum(fold.mean_return > 0.0 for fold in folds)
     strongest_friction = max(config.friction_bps, default=0) / 10_000.0
-    control_ok = (
-        control_mean is None
-        or summary.mean <= 0.0
-        or control_mean < summary.mean * 0.75
-    )
+    control_ok = control_mean is None or summary.mean <= 0.0 or control_mean < summary.mean * 0.75
     checks = {
         "multiple_positive_folds": positive_folds >= 2,
         "enough_episodes": summary.count >= config.min_total_signals,
@@ -247,5 +312,6 @@ def evaluate_residual_strategy(
             "friction_bps": list(config.friction_bps),
             "fold_count": len(folds),
             "leave_one_out_max_mean_impact": summary.leave_one_out_max_mean_impact,
+            "beta_lookbacks": list(config.beta_lookbacks),
         },
     )

@@ -119,10 +119,15 @@ class AlpacaRestHistoryClient:
         *,
         base_url: str = "https://data.alpaca.markets",
         http_client: Any | None = None,
+        sleep: Callable[[float], None] | None = None,
+        max_retries: int = 3,
     ) -> None:
         import httpx
+        import time as time_module
 
         self._client = http_client or httpx.Client(timeout=30.0)
+        self._sleep = sleep or time_module.sleep
+        self._max_retries = max_retries
         self._base_url = base_url.rstrip("/")
         self._headers = {
             "APCA-API-KEY-ID": api_key,
@@ -159,12 +164,26 @@ class AlpacaRestHistoryClient:
             page_params = dict(params)
             if page_token:
                 page_params["page_token"] = page_token
-            response = self._client.get(
-                f"{self._base_url}{path}",
-                params=page_params,
-                headers=self._headers,
-            )
-            response.raise_for_status()
+            attempt = 0
+            while True:
+                response = self._client.get(
+                    f"{self._base_url}{path}",
+                    params=page_params,
+                    headers=self._headers,
+                )
+                retryable = response.status_code == 429 or response.status_code >= 500
+                if not retryable:
+                    response.raise_for_status()
+                    break
+                if attempt >= self._max_retries:
+                    response.raise_for_status()
+                retry_after = response.headers.get("Retry-After")
+                try:
+                    delay = float(retry_after) if retry_after is not None else 0.25 * (2**attempt)
+                except ValueError:
+                    delay = 0.25 * (2**attempt)
+                self._sleep(max(0.0, delay))
+                attempt += 1
             payload = response.json()
             bars = payload.get("bars", {})
             if isinstance(bars, Mapping):
