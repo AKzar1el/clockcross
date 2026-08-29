@@ -11,7 +11,14 @@ from pydantic import BaseModel
 from clockcross.agent.adjudicator import AgentContext
 from clockcross.alpaca.mcp import McpContextRequest, McpToolRequest
 from clockcross.alpaca.options import OptionChainSnapshot, evaluate_option_feasibility
-from clockcross.domain import AgentAction, AgentDecision, EpisodeState, FeatureVector, RiskDecision, SpreadCandidate
+from clockcross.domain import (
+    AgentAction,
+    AgentDecision,
+    EpisodeState,
+    FeatureVector,
+    RiskDecision,
+    SpreadCandidate,
+)
 from clockcross.ledger import Ledger
 from clockcross.trading.constructor import construct_vertical, direction_from_agent
 from clockcross.trading.execution import ExecutionResult, IndeterminateOrderError
@@ -46,7 +53,14 @@ class ApprovedMutationGate:
 
     CANONICAL_MUTATION_ID = "coin-options-2026-08-29"
 
-    def __init__(self, *, verdict_path: str | Path, mutation_spec_path: str | Path, expected_config_hash: str, mutation_id: str) -> None:
+    def __init__(
+        self,
+        *,
+        verdict_path: str | Path,
+        mutation_spec_path: str | Path,
+        expected_config_hash: str,
+        mutation_id: str,
+    ) -> None:
         self._verdict_path = Path(verdict_path)
         self._mutation_spec_path = Path(mutation_spec_path)
         self._expected_config_hash = expected_config_hash
@@ -121,7 +135,20 @@ def _news_summary(evidence: Any) -> str:
 class Scheduler:
     """One-session state-driven orchestrator; no background threads or hidden retries."""
 
-    def __init__(self, *, ledger: Ledger, readiness_gate: ReadinessGate, signal_gateway: SignalGateway, chain_gateway: ChainGateway, mcp_gateway: Any, adjudicator: Any, portfolio_gateway: PortfolioGateway, risk_governor: RiskGateway, execution: ExecutionGateway, now: Callable[[], datetime]) -> None:
+    def __init__(
+        self,
+        *,
+        ledger: Ledger,
+        readiness_gate: ReadinessGate,
+        signal_gateway: SignalGateway,
+        chain_gateway: ChainGateway,
+        mcp_gateway: Any,
+        adjudicator: Any,
+        portfolio_gateway: PortfolioGateway,
+        risk_governor: RiskGateway,
+        execution: ExecutionGateway,
+        now: Callable[[], datetime],
+    ) -> None:
         self._ledger = ledger
         self._readiness = readiness_gate
         self._signal = signal_gateway
@@ -134,7 +161,12 @@ class Scheduler:
         self._now = now
 
     def _abstain(self, episode_id: str, reason: str) -> EpisodeSummary:
-        record = self._ledger.transition(episode_id, EpisodeState.ABSTAINED, event="abstain", payload={"reason": reason})
+        record = self._ledger.transition(
+            episode_id,
+            EpisodeState.ABSTAINED,
+            event="abstain",
+            payload={"reason": reason},
+        )
         return EpisodeSummary(episode_id=episode_id, state=record.state, reason=reason)
 
     def _resume_submitted(self, episode_id: str) -> EpisodeSummary:
@@ -144,10 +176,11 @@ class Scheduler:
         result = self._execution.reconcile(order)
         status = result.status.lower()
         state = EpisodeState.ORDER_SUBMITTED
-        if status == "filled":
-            self._ledger.transition(episode_id, EpisodeState.ORDER_FILLED, event="reconciled_filled")
-            self._ledger.transition(episode_id, EpisodeState.MONITORING, event="begin_monitoring")
-            state = EpisodeState.MONITORING
+        if status in {"filled", "partially_filled"}:
+            if status == "filled":
+                self._ledger.transition(episode_id, EpisodeState.ORDER_FILLED, event="reconciled_filled")
+                self._ledger.transition(episode_id, EpisodeState.MONITORING, event="begin_monitoring")
+                state = EpisodeState.MONITORING
         elif status in {"canceled", "cancelled", "expired"}:
             self._ledger.transition(episode_id, EpisodeState.ORDER_CANCELLED, event="reconciled_cancelled")
             self._ledger.transition(episode_id, EpisodeState.CLOSED, event="closed_after_cancel")
@@ -158,9 +191,16 @@ class Scheduler:
             state = EpisodeState.CLOSED
         return EpisodeSummary(episode_id=episode_id, state=state, order=result)
 
+    def reconcile_session(self, session_date: date) -> EpisodeSummary:
+        episode = self._ledger.get_open_episode(session_date, "COIN")
+        if episode is None or episode.state is not EpisodeState.ORDER_SUBMITTED:
+            raise RuntimeError("reconcile requires an existing ORDER_SUBMITTED COIN episode")
+        return self._resume_submitted(episode.episode_id)
+
     def run_session(self, session_date: date, *, mode: RunMode = "dry-run") -> EpisodeSummary:
         self._readiness.require_ready(mode=mode)
         episode = self._ledger.create_episode(session_date, "COIN")
+
         if episode.state is EpisodeState.ORDER_SUBMITTED:
             return self._resume_submitted(episode.episode_id)
         if episode.state in {EpisodeState.ABSTAINED, EpisodeState.CLOSED}:
@@ -171,36 +211,62 @@ class Scheduler:
         premarket = self._signal.collect_premarket(session_date)
         if premarket is None or premarket.underlying != "COIN":
             return self._abstain(episode.episode_id, "premarket_features_unavailable")
-        self._ledger.transition(episode.episode_id, EpisodeState.FEATURES_FROZEN, event="features_frozen")
+        self._ledger.transition(
+            episode.episode_id,
+            EpisodeState.FEATURES_FROZEN,
+            event="features_frozen",
+        )
 
         features = self._signal.opening_confirmation(premarket)
         if features is None or features.opening_10m_return is None:
             return self._abstain(episode.episode_id, "opening_confirmation_unavailable")
         self._ledger.record_features(episode.episode_id, features)
-        self._ledger.transition(episode.episode_id, EpisodeState.OPENING_CONFIRMATION, event="opening_confirmation_complete")
+        self._ledger.transition(
+            episode.episode_id,
+            EpisodeState.OPENING_CONFIRMATION,
+            event="opening_confirmation_complete",
+        )
 
         evidence = self._signal.evaluate(features)
         if not evidence.approved:
             return self._abstain(episode.episode_id, evidence.reason)
-        self._ledger.transition(episode.episode_id, EpisodeState.CANDIDATE_READY, event="cross_market_evidence_passed", payload={"reason": evidence.reason})
+        self._ledger.transition(
+            episode.episode_id,
+            EpisodeState.CANDIDATE_READY,
+            event="cross_market_evidence_passed",
+            payload={"reason": evidence.reason},
+        )
 
         now = self._now()
         if now.tzinfo is None:
             return self._abstain(episode.episode_id, "naive_runtime_clock")
         chain = self._chains.get_chain("COIN", now=now)
         feasibility = evaluate_option_feasibility(chain, now=now)
-        self._ledger.record_mark(episode.episode_id, marked_at=now, value="option_feasibility", payload=feasibility.model_dump(mode="json"))
+        self._ledger.record_mark(
+            episode.episode_id,
+            marked_at=now,
+            value="option_feasibility",
+            payload=feasibility.model_dump(mode="json"),
+        )
         if not feasibility.feasible:
             reason = feasibility.reasons[0] if feasibility.reasons else "option_surface_unavailable"
             return self._abstain(episode.episode_id, reason)
 
-        mcp_request = McpContextRequest(calls=(McpToolRequest(name="get_news", arguments={"symbols": "COIN"}), McpToolRequest(name="get_clock", arguments={})))
+        mcp_request = McpContextRequest(
+            calls=(
+                McpToolRequest(name="get_news", arguments={"symbols": "COIN"}),
+                McpToolRequest(name="get_clock", arguments={}),
+            )
+        )
         mcp_evidence = self._mcp.collect_context(mcp_request)
         self._ledger.record_mark(
             episode.episode_id,
             marked_at=now,
             value="mcp_evidence",
-            payload={"complete": mcp_evidence.complete, "items": [item.model_dump(mode="json", exclude={"content"}) for item in mcp_evidence.items]},
+            payload={
+                "complete": mcp_evidence.complete,
+                "items": [item.model_dump(mode="json", exclude={"content"}) for item in mcp_evidence.items],
+            },
         )
         if not mcp_evidence.complete:
             return self._abstain(episode.episode_id, "mcp_context_unavailable")
@@ -221,7 +287,12 @@ class Scheduler:
         )
         decision = self._ai.decide(context)
         self._ledger.record_decision(episode.episode_id, decision)
-        self._ledger.transition(episode.episode_id, EpisodeState.AI_REVIEWED, event="ai_adjudicated", payload={"action": decision.action.value})
+        self._ledger.transition(
+            episode.episode_id,
+            EpisodeState.AI_REVIEWED,
+            event="ai_adjudicated",
+            payload={"action": decision.action.value},
+        )
         if decision.action is AgentAction.ABSTAIN:
             return self._abstain(episode.episode_id, decision.reason)
 
@@ -238,21 +309,64 @@ class Scheduler:
         if not risk.approved:
             reason = risk.reasons[0] if risk.reasons else "risk_rejected"
             return self._abstain(episode.episode_id, reason)
-        self._ledger.transition(episode.episode_id, EpisodeState.RISK_APPROVED, event="risk_approved", payload={"max_loss": str(risk.max_loss)})
+        self._ledger.transition(
+            episode.episode_id,
+            EpisodeState.RISK_APPROVED,
+            event="risk_approved",
+            payload={"max_loss": str(risk.max_loss)},
+        )
 
         if mode == "dry-run":
-            return EpisodeSummary(episode_id=episode.episode_id, state=EpisodeState.RISK_APPROVED, reason="dry_run_would_submit", decision=decision, candidate=candidate, risk=risk)
+            return EpisodeSummary(
+                episode_id=episode.episode_id,
+                state=EpisodeState.RISK_APPROVED,
+                reason="dry_run_would_submit",
+                decision=decision,
+                candidate=candidate,
+                risk=risk,
+            )
 
-        self._ledger.transition(episode.episode_id, EpisodeState.ORDER_SUBMITTED, event="submission_started")
+        self._ledger.transition(
+            episode.episode_id,
+            EpisodeState.ORDER_SUBMITTED,
+            event="submission_started",
+        )
         try:
             order = self._execution.submit(episode.episode_id, candidate, risk)
         except IndeterminateOrderError:
-            return EpisodeSummary(episode_id=episode.episode_id, state=EpisodeState.ORDER_SUBMITTED, reason="order_indeterminate", decision=decision, candidate=candidate, risk=risk)
+            return EpisodeSummary(
+                episode_id=episode.episode_id,
+                state=EpisodeState.ORDER_SUBMITTED,
+                reason="order_indeterminate",
+                decision=decision,
+                candidate=candidate,
+                risk=risk,
+            )
         except Exception:
-            self._ledger.transition(episode.episode_id, EpisodeState.ORDER_REJECTED, event="submission_failed")
-            self._ledger.transition(episode.episode_id, EpisodeState.CLOSED, event="closed_after_submission_failure")
+            self._ledger.transition(
+                episode.episode_id,
+                EpisodeState.ORDER_REJECTED,
+                event="submission_failed",
+            )
+            self._ledger.transition(
+                episode.episode_id,
+                EpisodeState.CLOSED,
+                event="closed_after_submission_failure",
+            )
             raise
 
         if self._ledger.get_order_by_client_id(order.client_order_id) is None:
-            self._ledger.record_order(episode.episode_id, client_order_id=order.client_order_id, alpaca_order_id=order.alpaca_order_id, status=order.status)
-        return EpisodeSummary(episode_id=episode.episode_id, state=EpisodeState.ORDER_SUBMITTED, decision=decision, candidate=candidate, risk=risk, order=order)
+            self._ledger.record_order(
+                episode.episode_id,
+                client_order_id=order.client_order_id,
+                alpaca_order_id=order.alpaca_order_id,
+                status=order.status,
+            )
+        return EpisodeSummary(
+            episode_id=episode.episode_id,
+            state=EpisodeState.ORDER_SUBMITTED,
+            decision=decision,
+            candidate=candidate,
+            risk=risk,
+            order=order,
+        )
