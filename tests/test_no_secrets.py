@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 _ASSIGNMENT = re.compile(
-    r"(?im)^\s*(ALPACA_API_KEY|ALPACA_SECRET_KEY|LLM_API_KEY)\s*=\s*([^\s#]+)\s*$"
+    r"(?m)^[ \t]*(ALPACA_API_KEY|ALPACA_SECRET_KEY|LLM_API_KEY)[ \t]*=[ \t]*([^#\r\n]*)$"
 )
 _OPENAI_KEY = re.compile(r"\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b")
 _ALPACA_HEADER_LITERAL = re.compile(
