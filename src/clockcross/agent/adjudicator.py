@@ -70,6 +70,7 @@ class Adjudicator:
                 headers={
                     "Authorization": f"Bearer {self._api_key}",
                     "Content-Type": "application/json",
+                    "HTTP-Referer": "https://github.com/AKzar1el/clockcross",
                     "X-Title": "ClockCross",
                 },
                 json={
