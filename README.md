@@ -6,6 +6,8 @@ ClockCross was built for the **Alpaca AI Trading Agents Hackathon**. It uses Alp
 
 > Paper trading is a simulation. Nothing in this repository is investment advice, and the research results do not imply future performance.
 
+**Judge demo:** https://clockcross-demo.tomi-seregi99.workers.dev — a static, zero-secret evidence surface showing the frozen research results, negative evidence, autonomous architecture, Alpaca integration, risk envelope, and verified development preflight/safety proofs. It exposes no trading controls or live account connection.
+
 ## Why ClockCross
 
 BTC trades continuously while U.S. equity options do not. The naive idea — “BTC moved overnight, so buy a crypto-sensitive stock at the open” — is rejected because COIN and MSTR already reprice before the regular session.
