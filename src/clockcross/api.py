@@ -4,6 +4,7 @@ import html
 import json
 import os
 import sqlite3
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from decimal import Decimal
 from pathlib import Path
@@ -47,11 +48,16 @@ def _load_research(path: Path) -> dict[str, Any]:
     return payload
 
 
+def _mapping(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
 def _compact_research(path: Path) -> dict[str, Any]:
     raw = _load_research(path)
-    symbols = raw.get("symbols") if isinstance(raw.get("symbols"), dict) else {}
-    coin = symbols.get("COIN") if isinstance(symbols.get("COIN"), dict) else {}
-    mstr = symbols.get("MSTR") if isinstance(symbols.get("MSTR"), dict) else {}
+    symbols = _mapping(raw.get("symbols"))
+    coin = _mapping(symbols.get("COIN"))
+    mstr = _mapping(symbols.get("MSTR"))
+    coin_metadata = _mapping(coin.get("metadata"))
     mean_coin = coin.get("mean_test_return")
     mean_mstr = mstr.get("mean_test_return")
     return {
@@ -69,13 +75,17 @@ def _compact_research(path: Path) -> dict[str, Any]:
             "role": "live_candidate",
             "verdict": coin.get("verdict"),
             "total_signals": coin.get("total_signals"),
-            "mean_test_return_bps": None if not isinstance(mean_coin, (int, float)) else round(mean_coin * 10_000, 2),
-            "config_hash": (coin.get("metadata") or {}).get("config_hash") if isinstance(coin.get("metadata"), dict) else None,
+            "mean_test_return_bps": None
+            if not isinstance(mean_coin, (int, float))
+            else round(mean_coin * 10_000, 2),
+            "config_hash": coin_metadata.get("config_hash"),
         },
         "mstr": {
             "role": "negative_evidence_only",
             "verdict": mstr.get("verdict"),
-            "mean_test_return_bps": None if not isinstance(mean_mstr, (int, float)) else round(mean_mstr * 10_000, 2),
+            "mean_test_return_bps": None
+            if not isinstance(mean_mstr, (int, float))
+            else round(mean_mstr * 10_000, 2),
         },
         "limitations": [
             "Paper-trading results are hypothetical.",
@@ -116,14 +126,16 @@ def _public_episode_summaries(path: Path, *, limit: int) -> list[dict[str, Any]]
                     payload = {}
                 if isinstance(payload, dict) and payload.get("reason") is not None:
                     reason = str(payload["reason"])
-            result.append({
-                "episode_id": row["episode_id"],
-                "session_date": row["session_date"],
-                "underlying": row["underlying"],
-                "state": row["state"],
-                "reason": reason,
-                "updated_at": row["updated_at"],
-            })
+            result.append(
+                {
+                    "episode_id": row["episode_id"],
+                    "session_date": row["session_date"],
+                    "underlying": row["underlying"],
+                    "state": row["state"],
+                    "reason": reason,
+                    "updated_at": row["updated_at"],
+                }
+            )
         return result
     finally:
         conn.close()
@@ -137,11 +149,14 @@ def create_app(
 ) -> FastAPI:
     owned_ledger = ledger is None
     ledger = ledger or Ledger(os.getenv("CLOCKCROSS_DB_PATH", "data/clockcross.sqlite3"))
-    research = Path(research_path or os.getenv("CLOCKCROSS_RESEARCH_PATH", "artifacts/research/verdict.json"))
+    if research_path is None:
+        research = Path(os.getenv("CLOCKCROSS_RESEARCH_PATH", "artifacts/research/verdict.json"))
+    else:
+        research = Path(research_path)
     template = Path(__file__).with_name("templates") / "index.html"
 
     @asynccontextmanager
-    async def lifespan(_app: FastAPI):
+    async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         try:
             yield
         finally:
@@ -175,7 +190,10 @@ def create_app(
             _load_research(research)
         except Exception:
             return JSONResponse(status_code=503, content={"status": "not_ready"})
-        return JSONResponse(status_code=200 if db_ok else 503, content={"status": "ready" if db_ok else "not_ready"})
+        return JSONResponse(
+            status_code=200 if db_ok else 503,
+            content={"status": "ready" if db_ok else "not_ready"},
+        )
 
     @app.get("/api/status")
     def api_status() -> dict[str, Any]:
@@ -193,7 +211,11 @@ def create_app(
     def index() -> HTMLResponse:
         status = json.dumps(status_payload(), indent=2, default=str)
         research_payload = json.dumps(_compact_research(research), indent=2, default=str)
-        episodes = json.dumps(_public_episode_summaries(ledger.path, limit=20), indent=2, default=str)
+        episodes = json.dumps(
+            _public_episode_summaries(ledger.path, limit=20),
+            indent=2,
+            default=str,
+        )
         text = template.read_text()
         text = text.replace("__STATUS__", html.escape(status))
         text = text.replace("__RESEARCH__", html.escape(research_payload))
