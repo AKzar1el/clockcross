@@ -36,7 +36,7 @@ Do not commit `.env`, credentials, account IDs, API response headers, or raw mar
 
 ## 3. Preflight
 
-Before every paper run:
+Before every paper run, verify the local code first:
 
 ```bash
 uv run pytest -q
@@ -44,13 +44,31 @@ uv run ruff check .
 uv run mypy src/clockcross
 ```
 
+Then run the external read-only preflight:
+
+```bash
+uv run clockcross preflight
+```
+
+`preflight` is safe to run while U.S. markets are closed. It does **not** open the SQLite decision ledger, create an episode, instantiate the trading execution service, or call an Alpaca order endpoint. It checks exactly five external surfaces:
+
+1. Alpaca paper account is `ACTIVE` and unblocked;
+2. options trading and maximum options level permit Level 3 spreads;
+3. the current COIN option chain is parseable and contains at least one 7–21 DTE contract;
+4. read-only Alpaca MCP `get_clock` succeeds;
+5. the configured AI provider returns a schema-valid bounded decision.
+
+The command exits `0` only when all five checks pass and exits `2` when any check fails. Do not start paper mode after a failed preflight; inspect the named failed check first.
+
+**Closed-market note:** weekend/pre-open option quotes are expected to be old. The read-only preflight deliberately checks chain coverage and parseability, not the live 60-second quote-freshness rule. The actual 09:55 ET decision pipeline still enforces live quote freshness before a spread can be constructed or submitted.
+
 Verify the frozen artifacts exist:
 
 - `artifacts/research/verdict.json`
 - `docs/research/2026-08-29-live-signal-policy.json`
 - `docs/superpowers/specs/2026-08-29-coin-options-mutation.md`
 
-Competition startup additionally verifies:
+Competition startup additionally verifies at the paper-run gate:
 
 - paper endpoint only;
 - account `ACTIVE` and not trading-blocked;
@@ -58,6 +76,25 @@ Competition startup additionally verifies:
 - maximum options level >= 3;
 - exactly `$100,000` equity before the first episode;
 - no existing positions before the first episode.
+
+The read-only preflight does not replace those pristine competition-account checks; they remain mandatory immediately before the first competition paper episode.
+
+### Sunday / Monday sequence
+
+**Sunday:**
+
+1. run the full CI-equivalent local checks;
+2. run `clockcross preflight` against the development account;
+3. resolve every failed external check;
+4. create the fresh competition paper account only after development preflight is clean;
+5. optionally run the same read-only preflight against the competition account; do not submit a smoke order to it.
+
+**Monday:**
+
+1. repeat `clockcross preflight` before the U.S. session;
+2. use the development account for any explicitly approved MLeg smoke/cancel test;
+3. keep `CLOCKCROSS_ALLOW_DEV_ORDER=false` for competition credentials;
+4. after the 09:55 ET information boundary, let the competition runtime enforce the pristine `$100,000`/empty-account gate before the first autonomous episode.
 
 ## 4. Daily decision boundary
 
