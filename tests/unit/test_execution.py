@@ -60,6 +60,7 @@ class FakeHttp:
     def __init__(self):
         self.posts = []
         self.gets = []
+        self.deletes = []
 
     def post(self, url, *, headers, json, timeout):
         self.posts.append((url, headers, json, timeout))
@@ -67,7 +68,13 @@ class FakeHttp:
 
     def get(self, url, *, headers, params, timeout):
         self.gets.append((url, headers, params, timeout))
+        if url.endswith("/v2/clock"):
+            return FakeResponse({"is_open": True})
         return FakeResponse({}, status=404)
+
+    def delete(self, url, *, headers, timeout):
+        self.deletes.append((url, headers, timeout))
+        return FakeResponse({}, status=204)
 
 
 def test_rest_client_submits_atomic_debit_vertical_payload():
@@ -86,6 +93,26 @@ def test_rest_client_submits_atomic_debit_vertical_payload():
         {"symbol": "COIN260911C00300000", "ratio_qty": "1", "side": "buy", "position_intent": "buy_to_open"},
         {"symbol": "COIN260911C00310000", "ratio_qty": "1", "side": "sell", "position_intent": "sell_to_open"},
     ]
+
+
+def test_rest_client_reads_paper_market_clock():
+    http = FakeHttp()
+    client = AlpacaPaperTradingRestClient("key", "secret", http_client=http)
+
+    result = client.clock()
+
+    assert result == {"is_open": True}
+    assert http.gets[0][0] == "https://paper-api.alpaca.markets/v2/clock"
+    assert http.gets[0][2] == {}
+
+
+def test_rest_client_cancels_parent_order_by_id():
+    http = FakeHttp()
+    client = AlpacaPaperTradingRestClient("key", "secret", http_client=http)
+
+    client.cancel_order("alpaca-1")
+
+    assert http.deletes[0][0] == "https://paper-api.alpaca.markets/v2/orders/alpaca-1"
 
 
 class FakeTrading:
