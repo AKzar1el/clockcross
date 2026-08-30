@@ -34,6 +34,9 @@
 - [x] Public GitHub repository.
 - [x] MIT license.
 - [x] Complete static brand asset set prepared (mark, wordmark, favicons, app icons, social preview, manifest).
+- [x] Hackathon cover displayed at the top of the feature-branch README.
+- [x] Canonical submission copy + image placement map prepared in `docs/SUBMISSION_PACKAGE.md`.
+- [ ] GitHub repository social preview uploaded in repository Settings after final merge.
 - [ ] `pytest -q` passes on final submission commit.
 - [ ] Ruff passes on final submission commit.
 - [ ] mypy passes on final submission commit.
@@ -45,13 +48,16 @@
 
 ## Lablab submission
 
-- [ ] Project title and short description.
-- [ ] Long description.
-- [ ] Technology/category tags.
+- [x] Project title and short-description copy prepared.
+- [x] Long-description copy prepared.
+- [x] Technology/category tags prepared.
 - [x] 16:9 cover image asset prepared: `deploy/cloudflare-demo/public/hackathon-cover.png`.
+- [x] Public HTTPS cover URL available: `https://clockcross-demo.tomi-seregi99.workers.dev/hackathon-cover.png`.
+- [ ] Project title / descriptions / tags entered on Lablab.
 - [ ] Cover image uploaded to Lablab.
-- [ ] Public GitHub URL.
-- [x] Demo application URL: `https://clockcross-demo.tomi-seregi99.workers.dev`.
+- [ ] Public GitHub URL entered after the implementation branch is merged to `main`.
+- [x] Demo application URL prepared: `https://clockcross-demo.tomi-seregi99.workers.dev`.
+- [ ] Demo application URL entered on Lablab.
 - [ ] Video presentation.
 - [ ] Slide presentation.
 - [ ] Alpaca paper trading account ID.
