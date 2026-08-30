@@ -15,7 +15,7 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKERS_TOKEN }}
     steps:
-      - name: Probe Qwen3 through Wrangler remote AI binding
+      - name: Probe Qwen3 prompt path through Wrangler remote AI binding
         shell: bash
         run: |
           set -euo pipefail
@@ -35,16 +35,13 @@ jobs:
             async fetch(_request, env) {
               try {
                 const result = await env.AI.run("@cf/qwen/qwen3-30b-a3b-fp8", {
-                  messages: [
-                    { role: "system", content: "Reply with exactly OK." },
-                    { role: "user", content: "Health check" }
-                  ],
+                  prompt: "Reply with exactly OK.\nHealth check",
                   chat_template_kwargs: { enable_thinking: false },
                   temperature: 0,
-                  max_tokens: 32
+                  max_tokens: 64
                 });
                 const responseText = typeof result?.response === "string" ? result.response : "";
-                const choiceText = result?.choices?.[0]?.message?.content ?? "";
+                const choiceText = result?.choices?.[0]?.message?.content ?? result?.choices?.[0]?.text ?? "";
                 const text = responseText || choiceText;
                 return Response.json({
                   ok: Boolean(text),
