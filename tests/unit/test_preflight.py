@@ -3,16 +3,27 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
+import pytest
+
 from clockcross.alpaca.mcp import McpEvidence, McpEvidenceItem
 from clockcross.alpaca.options import OptionChainSnapshot, OptionContractSnapshot
 from clockcross.domain import AgentAction, AgentDecision, AgentDriver
+from clockcross.ledger import Ledger
 from clockcross.preflight import run_read_only_preflight
+from clockcross.runtime import AccountReadinessGate
 
 NOW = datetime(2026, 8, 30, 13, 0, tzinfo=timezone.utc)
 
 
 class AccountProbe:
-    def __init__(self, *, trading_level: int = 3, max_level: int = 3) -> None:
+    def __init__(
+        self,
+        *,
+        approved_level: int = 3,
+        trading_level: int = 3,
+        max_level: int | None = 3,
+    ) -> None:
+        self.approved_level = approved_level
         self.trading_level = trading_level
         self.max_level = max_level
 
@@ -20,11 +31,17 @@ class AccountProbe:
         return {
             "status": "ACTIVE",
             "trading_blocked": False,
+            "options_approved_level": self.approved_level,
             "options_trading_level": self.trading_level,
         }
 
     def configuration(self):
+        if self.max_level is None:
+            return {}
         return {"max_options_trading_level": self.max_level}
+
+    def positions(self):
+        return []
 
 
 class ChainProbe:
@@ -86,6 +103,16 @@ class AiProbe:
         )
 
 
+def run_preflight(account: AccountProbe):
+    return run_read_only_preflight(
+        account=account,
+        chain_gateway=ChainProbe(),
+        mcp_gateway=McpProbe(),
+        adjudicator=AiProbe(),
+        now=NOW,
+    )
+
+
 def test_read_only_preflight_accepts_closed_market_chain_and_checks_external_surfaces():
     chain = ChainProbe()
     report = run_read_only_preflight(
@@ -108,9 +135,26 @@ def test_read_only_preflight_accepts_closed_market_chain_and_checks_external_sur
     assert chain.calls == [("COIN", NOW)]
 
 
+def test_preflight_accepts_level3_account_when_configuration_omits_max_level():
+    report = run_preflight(AccountProbe(max_level=None))
+    check = {item.name: item for item in report.checks}["options_level_3"]
+
+    assert check.ok is True
+    assert "approved=3" in check.detail
+    assert "trading=3" in check.detail
+    assert "not_reported" in check.detail
+
+
+def test_preflight_rejects_account_not_approved_for_level3():
+    report = run_preflight(AccountProbe(approved_level=2, trading_level=3, max_level=3))
+    check = {item.name: item for item in report.checks}["options_level_3"]
+
+    assert check.ok is False
+
+
 def test_preflight_reports_missing_options_level_and_empty_chain_without_throwing():
     report = run_read_only_preflight(
-        account=AccountProbe(trading_level=2, max_level=2),
+        account=AccountProbe(approved_level=2, trading_level=2, max_level=2),
         chain_gateway=ChainProbe(empty=True),
         mcp_gateway=McpProbe(),
         adjudicator=None,
@@ -123,3 +167,35 @@ def test_preflight_reports_missing_options_level_and_empty_chain_without_throwin
     assert checks["coin_option_chain"].ok is False
     assert checks["ai_provider"].ok is False
     assert "not configured" in checks["ai_provider"].detail
+
+
+def build_readiness_gate(tmp_path, account: AccountProbe) -> tuple[AccountReadinessGate, Ledger]:
+    ledger = Ledger(tmp_path / "readiness.db")
+    gate = AccountReadinessGate(
+        account=account,
+        ledger=ledger,
+        account_role="development",
+        allow_dev_order=True,
+        starting_equity=Decimal("100000"),
+    )
+    return gate, ledger
+
+
+def test_paper_readiness_accepts_level3_account_when_configuration_omits_max_level(tmp_path):
+    gate, ledger = build_readiness_gate(tmp_path, AccountProbe(max_level=None))
+    try:
+        gate.require_ready(mode="paper")
+    finally:
+        ledger.close()
+
+
+def test_paper_readiness_rejects_account_not_approved_for_level3(tmp_path):
+    gate, ledger = build_readiness_gate(
+        tmp_path,
+        AccountProbe(approved_level=2, trading_level=3, max_level=3),
+    )
+    try:
+        with pytest.raises(RuntimeError, match="Level 3"):
+            gate.require_ready(mode="paper")
+    finally:
+        ledger.close()
