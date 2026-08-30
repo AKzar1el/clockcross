@@ -92,6 +92,7 @@ def test_valid_decision_is_schema_validated():
     assert decision.driver is AgentDriver.CRYPTO_CROSS_MARKET
     assert http.calls[0][0] == "https://api.featherless.ai/v1/chat/completions"
     assert http.calls[0][2]["temperature"] == 0
+    assert http.calls[0][2]["chat_template_kwargs"] == {"enable_thinking": False}
 
 
 def test_featherless_application_headers_are_sent():
