@@ -33,6 +33,7 @@
 
 - [x] Public GitHub repository.
 - [x] MIT license.
+- [x] Complete static brand asset set prepared (mark, wordmark, favicons, app icons, social preview, manifest).
 - [ ] `pytest -q` passes on final submission commit.
 - [ ] Ruff passes on final submission commit.
 - [ ] mypy passes on final submission commit.
@@ -47,7 +48,8 @@
 - [ ] Project title and short description.
 - [ ] Long description.
 - [ ] Technology/category tags.
-- [ ] Cover image.
+- [x] 16:9 cover image asset prepared: `deploy/cloudflare-demo/public/hackathon-cover.png`.
+- [ ] Cover image uploaded to Lablab.
 - [ ] Public GitHub URL.
 - [x] Demo application URL: `https://clockcross-demo.tomi-seregi99.workers.dev`.
 - [ ] Video presentation.
