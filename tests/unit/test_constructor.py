@@ -126,3 +126,22 @@ def test_policy_can_bound_maximum_debit_before_risk_governor():
         ],
     )
     assert construct_vertical(chain, direction="bullish", now=NOW, policy=policy) is None
+
+
+def test_live_liquidity_policy_does_not_advertise_unpopulated_oi_or_volume_gates():
+    fields = ConstructionPolicy.model_fields
+    assert "min_open_interest" not in fields
+    assert "min_volume" not in fields
+
+
+def test_alpaca_normalized_contracts_without_oi_or_volume_use_real_quote_controls_only():
+    chain = OptionChainSnapshot(
+        underlying="COIN",
+        feed="indicative",
+        contracts=[
+            c("COIN300C", 300, "call", 0.55, 5.00, 5.20),
+            c("COIN310C", 310, "call", 0.35, 2.70, 2.90),
+        ],
+    )
+    assert all(item.open_interest is None and item.volume is None for item in chain.contracts)
+    assert construct_vertical(chain, direction="bullish", now=NOW) is not None
