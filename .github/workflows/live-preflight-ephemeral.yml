@@ -1,0 +1,33 @@
+name: ClockCross encrypted live preflight ephemeral
+
+on:
+  push:
+    branches:
+      - feat/clockcross-core
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+      ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+      CLOCKCROSS_ACCOUNT_ROLE: development
+      CLOCKCROSS_ALLOW_DEV_ORDER: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --extra dev
+      - name: Run strictly read-only preflight
+        shell: bash
+        run: |
+          set +e
+          uv run clockcross preflight
+          rc=$?
+          echo "CLOCKCROSS_PREFLIGHT_EXIT=$rc"
+          exit 0
