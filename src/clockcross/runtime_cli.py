@@ -4,6 +4,7 @@ import argparse
 import json
 import sys
 from collections.abc import Callable
+from dataclasses import asdict, is_dataclass
 from datetime import date
 from enum import Enum
 from typing import Any, cast
@@ -41,9 +42,6 @@ def _jsonable(value: Any) -> Any:
     if isinstance(value, (list, tuple)):
         return [_jsonable(item) for item in value]
     return value
-
-
-from dataclasses import asdict, is_dataclass
 
 
 def execute_runtime_command(
