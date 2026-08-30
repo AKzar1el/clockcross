@@ -77,6 +77,29 @@ class AlpacaPaperTradingRestClient:
             "Content-Type": "application/json",
         }
 
+    def clock(self) -> dict[str, Any]:
+        response = self._http.get(
+            f"{self._base_url}/v2/clock",
+            headers=self._headers,
+            params={},
+            timeout=self._timeout,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise ValueError("unexpected Alpaca market clock response")
+        return payload
+
+    def cancel_order(self, order_id: str) -> None:
+        if not order_id.strip():
+            raise ValueError("Alpaca order id is required for cancellation")
+        response = self._http.delete(
+            f"{self._base_url}/v2/orders/{order_id}",
+            headers=self._headers,
+            timeout=self._timeout,
+        )
+        response.raise_for_status()
+
     def get_by_client_order_id(self, client_order_id: str) -> dict[str, Any] | None:
         response = self._http.get(
             f"{self._base_url}/v2/orders:by_client_order_id",
