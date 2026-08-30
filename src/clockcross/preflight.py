@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Protocol
 
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel
 
 from clockcross.agent.adjudicator import AgentContext
 from clockcross.alpaca.mcp import McpContextRequest, McpToolRequest
@@ -20,7 +20,6 @@ class PreflightCheck(BaseModel):
 class PreflightReport(BaseModel):
     checks: list[PreflightCheck]
 
-    @computed_field
     @property
     def ok(self) -> bool:
         return bool(self.checks) and all(check.ok for check in self.checks)
