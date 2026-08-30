@@ -23,7 +23,8 @@ _ALLOWED: dict[EpisodeState, frozenset[EpisodeState]] = {
     EpisodeState.ORDER_FILLED: frozenset({EpisodeState.MONITORING}),
     EpisodeState.ORDER_CANCELLED: frozenset({EpisodeState.CLOSED}),
     EpisodeState.ORDER_REJECTED: frozenset({EpisodeState.CLOSED}),
-    EpisodeState.MONITORING: frozenset({EpisodeState.CLOSED}),
+    EpisodeState.MONITORING: frozenset({EpisodeState.EXIT_SUBMITTED}),
+    EpisodeState.EXIT_SUBMITTED: frozenset({EpisodeState.CLOSED}),
     EpisodeState.ABSTAINED: frozenset(),
     EpisodeState.CLOSED: frozenset(),
 }
