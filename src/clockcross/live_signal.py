@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
-from typing import Literal, Protocol
+from typing import Literal, Protocol, TypedDict
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -21,6 +21,14 @@ class MinuteHistory(Protocol):
     def fetch_stock_minutes(self, symbol: str, start: datetime, end: datetime) -> pd.DataFrame: ...
 
 
+class _RawSessionRow(TypedDict):
+    session_date: date
+    btc_return: float
+    prior_close: float
+    premarket_price: float
+    equity_premarket_return: float
+
+
 class LiveSignalPolicy(BaseModel):
     policy_id: str
     mutation_id: str
@@ -36,7 +44,7 @@ class LiveSignalPolicy(BaseModel):
     decision_time_et: str
 
     @model_validator(mode="after")
-    def enforce_approved_policy(self) -> "LiveSignalPolicy":
+    def enforce_approved_policy(self) -> LiveSignalPolicy:
         if self.policy_id != "coin-continuation-beta40-raw1pct-2026-08-29":
             raise ValueError("unapproved live signal policy id")
         if self.mutation_id != "coin-options-2026-08-29":
@@ -47,7 +55,11 @@ class LiveSignalPolicy(BaseModel):
             raise ValueError("approved live signal policy is raw continuation only")
         if self.beta_lookback != 40 or abs(self.threshold - 0.01) > 1e-12:
             raise ValueError("approved live signal policy requires beta40 and 1% raw threshold")
-        if self.feature_freeze_et != "09:25:00" or self.confirmation_end_et != "09:40:00" or self.decision_time_et != "09:55:00":
+        if (
+            self.feature_freeze_et != "09:25:00"
+            or self.confirmation_end_et != "09:40:00"
+            or self.decision_time_et != "09:55:00"
+        ):
             raise ValueError("live signal timing does not match the approved mutation")
         return self
 
@@ -90,8 +102,12 @@ class LiveCoinSignalGateway:
         start_day = session_date - timedelta(days=self._history_days)
         start = datetime.combine(start_day, time.min, tzinfo=ET).astimezone(UTC)
         end = _utc(session_date, time(9, 40)).to_pydatetime()
-        btc = self._history.fetch_crypto_minutes(self._policy.crypto_driver, start, end).sort_index()
-        stock = self._history.fetch_stock_minutes(self._policy.underlying, start, end).sort_index()
+        btc = self._history.fetch_crypto_minutes(
+            self._policy.crypto_driver, start, end
+        ).sort_index()
+        stock = self._history.fetch_stock_minutes(
+            self._policy.underlying, start, end
+        ).sort_index()
         btc = btc.loc[btc.index <= pd.Timestamp(end)]
         stock = stock.loc[stock.index <= pd.Timestamp(end)]
         return btc, stock
@@ -109,11 +125,18 @@ class LiveCoinSignalGateway:
             closes[day] = (last_ts.tz_convert(UTC), float(group.iloc[-1]["close"]))
         return closes
 
-    def _raw_rows(self, btc: pd.DataFrame, stock: pd.DataFrame, through: date) -> list[dict[str, float | date]]:
+    def _raw_rows(
+        self,
+        btc: pd.DataFrame,
+        stock: pd.DataFrame,
+        through: date,
+    ) -> list[_RawSessionRow]:
         closes = self._regular_closes(stock)
         close_days = sorted(closes)
-        stock_days = sorted({ts.date() for ts in stock.tz_convert(ET).index if ts.date() <= through})
-        rows: list[dict[str, float | date]] = []
+        stock_days = sorted(
+            {ts.date() for ts in stock.tz_convert(ET).index if ts.date() <= through}
+        )
+        rows: list[_RawSessionRow] = []
         for day in stock_days:
             prior_days = [candidate for candidate in close_days if candidate < day]
             if not prior_days:
@@ -143,7 +166,9 @@ class LiveCoinSignalGateway:
     def collect_premarket(self, session_date: date) -> FeatureVector | None:
         btc, stock = self._fetch(session_date)
         rows = self._raw_rows(btc, stock, session_date)
-        current_indices = [index for index, row in enumerate(rows) if row["session_date"] == session_date]
+        current_indices = [
+            index for index, row in enumerate(rows) if row["session_date"] == session_date
+        ]
         if not current_indices:
             return None
         current_index = current_indices[-1]
@@ -152,27 +177,27 @@ class LiveCoinSignalGateway:
             return None
         prior = rows[current_index - lookback : current_index]
         beta = rolling_beta(
-            np.asarray([float(row["btc_return"]) for row in prior]),
-            np.asarray([float(row["equity_premarket_return"]) for row in prior]),
+            np.asarray([row["btc_return"] for row in prior]),
+            np.asarray([row["equity_premarket_return"] for row in prior]),
         )
         if beta is None:
             return None
         current = rows[current_index]
-        expected = beta * float(current["btc_return"])
-        residual = float(current["equity_premarket_return"]) - expected
+        expected = beta * current["btc_return"]
+        residual = current["equity_premarket_return"] - expected
 
         residual_history: list[float] = []
         for index in range(lookback, current_index):
             window = rows[index - lookback : index]
             historical_beta = rolling_beta(
-                np.asarray([float(row["btc_return"]) for row in window]),
-                np.asarray([float(row["equity_premarket_return"]) for row in window]),
+                np.asarray([row["btc_return"] for row in window]),
+                np.asarray([row["equity_premarket_return"] for row in window]),
             )
             if historical_beta is None:
                 continue
             row = rows[index]
             residual_history.append(
-                float(row["equity_premarket_return"]) - historical_beta * float(row["btc_return"])
+                row["equity_premarket_return"] - historical_beta * row["btc_return"]
             )
 
         self._stock = stock
@@ -182,10 +207,10 @@ class LiveCoinSignalGateway:
             session_date=session_date,
             underlying="COIN",
             crypto_driver="BTC/USD",
-            btc_return=float(current["btc_return"]),
-            prior_close=float(current["prior_close"]),
-            premarket_price=float(current["premarket_price"]),
-            equity_premarket_return=float(current["equity_premarket_return"]),
+            btc_return=current["btc_return"],
+            prior_close=current["prior_close"],
+            premarket_price=current["premarket_price"],
+            equity_premarket_return=current["equity_premarket_return"],
             beta=beta,
             expected_return=expected,
             residual=residual,
@@ -194,8 +219,12 @@ class LiveCoinSignalGateway:
     def opening_confirmation(self, features: FeatureVector) -> FeatureVector | None:
         if self._stock is None or self._last_session != features.session_date:
             return None
-        open_price = _exact(self._stock, _utc(features.session_date, time(9, 30)), "open")
-        confirm_price = _exact(self._stock, _utc(features.session_date, time(9, 40)), "open")
+        open_price = _exact(
+            self._stock, _utc(features.session_date, time(9, 30)), "open"
+        )
+        confirm_price = _exact(
+            self._stock, _utc(features.session_date, time(9, 40)), "open"
+        )
         if open_price is None or confirm_price is None or open_price <= 0:
             return None
         return features.model_copy(
