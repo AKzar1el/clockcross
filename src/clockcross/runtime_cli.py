@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 
 def register_runtime_subcommands(subparsers: Any) -> None:
+    subparsers.add_parser("preflight")
     run_once = subparsers.add_parser("run-once")
     run_once.add_argument("--date", required=True, type=date.fromisoformat)
     run_once.add_argument("--mode", choices=("dry-run", "paper"), default="dry-run")
@@ -43,12 +44,14 @@ def execute_runtime_command(
     args: argparse.Namespace,
     *,
     settings_factory: Callable[[], Any] | None = None,
+    preflight_builder: Callable[[Any], Any] | None = None,
     runtime_builder: Callable[[Any], Any] | None = None,
     reconciliation_builder: Callable[[Any], Any] | None = None,
     app_builder: Callable[[Any], Any] | None = None,
     uvicorn_runner: Callable[..., Any] | None = None,
 ) -> int | None:
     from clockcross.config import Settings
+    from clockcross.preflight_runtime import build_preflight_report
     from clockcross.runtime import (
         build_evidence_app,
         build_reconciliation_runtime,
@@ -56,12 +59,21 @@ def execute_runtime_command(
     )
 
     settings_builder: Callable[[], Any] = settings_factory or Settings
+    preflight_build: Callable[[Any], Any] = preflight_builder or build_preflight_report
     runtime_build: Callable[[Any], Any] = runtime_builder or build_runtime
     reconciliation_build: Callable[[Any], Any] = (
         reconciliation_builder or build_reconciliation_runtime
     )
     app_build: Callable[[Any], Any] = app_builder or build_evidence_app
 
+    if args.command == "preflight":
+        report = preflight_build(settings_builder())
+        payload = {
+            "ok": bool(report.ok),
+            "checks": [_jsonable(check) for check in report.checks],
+        }
+        print(json.dumps(payload, indent=2, sort_keys=True, default=str))
+        return 0 if report.ok else 2
     if args.command == "run-once":
         runtime = runtime_build(settings_builder())
         try:
