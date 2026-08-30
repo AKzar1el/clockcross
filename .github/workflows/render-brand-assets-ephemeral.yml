@@ -20,6 +20,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          sed -i 's/inset-top: 72px;/top: 72px;/' deploy/cloudflare-demo/public/styles.css
           python -m pip install --disable-pip-version-check --quiet cairosvg pillow
           python - <<'PY'
           from pathlib import Path
@@ -61,15 +62,16 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add deploy/cloudflare-demo/public/apple-touch-icon.png \
+          git add deploy/cloudflare-demo/public/styles.css \
+                  deploy/cloudflare-demo/public/apple-touch-icon.png \
                   deploy/cloudflare-demo/public/icon-192.png \
                   deploy/cloudflare-demo/public/icon-512.png \
                   deploy/cloudflare-demo/public/og-image.png \
                   deploy/cloudflare-demo/public/hackathon-cover.png \
                   deploy/cloudflare-demo/public/favicon.ico
           if git diff --cached --quiet; then
-            echo "Brand rasters already current"
+            echo "Brand assets and CSS already current"
             exit 0
           fi
-          git commit -m "feat: add rendered ClockCross brand assets"
+          git commit -m "fix: clean ClockCross demo polish"
           git push origin HEAD:feat/clockcross-core
