@@ -1,5 +1,9 @@
 # ClockCross
 
+<p align="center">
+  <img src="deploy/cloudflare-demo/public/hackathon-cover.png" alt="ClockCross — autonomous options trading agent" width="1200">
+</p>
+
 **An autonomous AI options agent that measures crypto-to-equity repricing gaps, validates them chronologically, and expresses only evidence-backed COIN signals through defined-risk Alpaca spreads.**
 
 ClockCross was built for the **Alpaca AI Trading Agents Hackathon**. It uses Alpaca's paper-trading stack, Alpaca MCP, and an authenticated Cloudflare Workers AI gateway backed by a schema-bounded Llama 3.3 70B model while keeping trade construction, risk, and order idempotency deterministic.
@@ -7,6 +11,8 @@ ClockCross was built for the **Alpaca AI Trading Agents Hackathon**. It uses Alp
 > Paper trading is a simulation. Nothing in this repository is investment advice, and the research results do not imply future performance.
 
 **Judge demo:** https://clockcross-demo.tomi-seregi99.workers.dev — a static, zero-secret evidence surface showing the frozen research results, negative evidence, autonomous architecture, Alpaca integration, risk envelope, and verified development preflight/safety proofs. It exposes no trading controls or live account connection.
+
+**Submission assets:** [`docs/SUBMISSION_PACKAGE.md`](docs/SUBMISSION_PACKAGE.md) — canonical Lablab copy, public image URLs, demo/repository links, video structure, and final submission handoff.
 
 ## Why ClockCross
 
@@ -160,6 +166,7 @@ The suite covers leakage boundaries, option-chain normalization, AI fail-closed 
 
 - [`docs/ONE_PAGE_WRITEUP.md`](docs/ONE_PAGE_WRITEUP.md) — hackathon technical summary
 - [`docs/OPERATIONS.md`](docs/OPERATIONS.md) — runbook and account discipline
+- [`docs/SUBMISSION_PACKAGE.md`](docs/SUBMISSION_PACKAGE.md) — ready-to-paste Lablab fields and public visual assets
 - [`docs/SUBMISSION_CHECKLIST.md`](docs/SUBMISSION_CHECKLIST.md) — final submission gate
 - [`docs/research/2026-08-29-initial-alpaca-run.md`](docs/research/2026-08-29-initial-alpaca-run.md) — immutable first-run interpretation
 - [`docs/research/2026-08-29-live-signal-policy.json`](docs/research/2026-08-29-live-signal-policy.json) — frozen live policy
