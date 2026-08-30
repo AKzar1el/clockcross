@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import argparse
 from datetime import date
+from decimal import Decimal
 
 from clockcross.domain import EpisodeState
 from clockcross.preflight import PreflightCheck, PreflightReport
 from clockcross.scheduler import EpisodeSummary
+from clockcross.smoke import MlegSmokeResult
 
 
 def parser():
@@ -68,6 +70,41 @@ def test_preflight_returns_nonzero_when_any_check_fails(capsys):
     )
     assert rc == 2
     assert '"ok": false' in capsys.readouterr().out
+
+
+def test_smoke_mleg_uses_dedicated_builder_without_full_runtime(capsys):
+    from clockcross.runtime_cli import execute_runtime_command
+
+    calls = []
+    result = MlegSmokeResult(
+        ok=True,
+        client_order_id="clockcross-smoke-test",
+        alpaca_order_id="alpaca-order-1",
+        displayed_net_debit=Decimal("2.50"),
+        submitted_limit=Decimal("0.01"),
+        submit_status="accepted",
+        final_status="canceled",
+        long_leg="COIN260911C00300000",
+        short_leg="COIN260911C00310000",
+    )
+
+    def forbidden(_):
+        raise AssertionError("full runtime must not be built for MLeg smoke")
+
+    args = parser().parse_args(["smoke-mleg"])
+    rc = execute_runtime_command(
+        args,
+        settings_factory=lambda: object(),
+        smoke_builder=lambda settings: (calls.append(settings) or result),
+        runtime_builder=forbidden,
+    )
+
+    assert rc == 0
+    assert len(calls) == 1
+    output = capsys.readouterr().out
+    assert '"ok": true' in output
+    assert '"submitted_limit": "0.01"' in output
+    assert '"final_status": "canceled"' in output
 
 
 def test_run_once_builds_runtime_executes_and_closes(capsys):
