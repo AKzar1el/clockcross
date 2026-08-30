@@ -15,7 +15,7 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKERS_TOKEN }}
     steps:
-      - name: Deploy, invoke, and delete disposable AI-bound Worker
+      - name: Probe Workers AI binding through Wrangler remote development
         shell: bash
         run: |
           set -euo pipefail
@@ -27,7 +27,7 @@ jobs:
             "name": "clockcross-ai-binding-probe-20260830",
             "main": "src/index.js",
             "compatibility_date": "2026-08-30",
-            "ai": { "binding": "AI" }
+            "ai": { "binding": "AI", "remote": true }
           }
           JSON
           cat > src/index.js <<'JS'
@@ -51,50 +51,52 @@ jobs:
           };
           JS
 
+          npx --yes wrangler@latest dev --remote --port 8787 --config wrangler.jsonc >/tmp/cf-remote-dev.log 2>&1 &
+          pid=$!
           cleanup() {
             set +e
-            printf 'y\n' | npx --yes wrangler@latest delete --config wrangler.jsonc >/tmp/cf-delete.log 2>&1
-            echo "WORKER_CLEANUP_ATTEMPTED=true"
+            kill "$pid" >/dev/null 2>&1
+            wait "$pid" >/dev/null 2>&1
+            echo "REMOTE_DEV_CLEANUP_ATTEMPTED=true"
           }
           trap cleanup EXIT
 
-          set +e
-          npx --yes wrangler@latest deploy --config wrangler.jsonc 2>&1 | tee /tmp/cf-deploy.log
-          deploy_rc=${PIPESTATUS[0]}
-          set -e
-          echo "WORKER_DEPLOY_EXIT=$deploy_rc"
-          if [ "$deploy_rc" -ne 0 ]; then
+          success=false
+          http="000"
+          for attempt in $(seq 1 30); do
+            if ! kill -0 "$pid" >/dev/null 2>&1; then
+              break
+            fi
+            set +e
+            http="$(curl -sS -o /tmp/cf-ai-result.json -w '%{http_code}' http://127.0.0.1:8787/)"
+            curl_rc=$?
+            set -e
+            if [ "$curl_rc" -eq 0 ] && [ "$http" != "000" ]; then
+              success=true
+              break
+            fi
+            sleep 2
+          done
+
+          echo "REMOTE_DEV_HTTP=$http"
+          echo "REMOTE_DEV_REACHABLE=$success"
+          if [ "$success" != "true" ]; then
+            tail -n 80 /tmp/cf-remote-dev.log || true
             exit 0
           fi
 
-          url="$(grep -Eo 'https://[^[:space:]]+\.workers\.dev' /tmp/cf-deploy.log | tail -1 || true)"
-          if [ -z "$url" ]; then
-            echo "WORKER_URL_DISCOVERED=false"
-            exit 0
-          fi
-          echo "WORKER_URL_DISCOVERED=true"
-
-          set +e
-          http="$(curl -sS -o /tmp/cf-ai-result.json -w '%{http_code}' "$url")"
-          curl_rc=$?
-          set -e
-          echo "WORKER_HTTP=$http"
-          echo "WORKER_CURL_EXIT=$curl_rc"
           python - <<'PY'
           import json
           from pathlib import Path
           path = Path('/tmp/cf-ai-result.json')
-          if not path.exists():
-              print(json.dumps({'ai_binding_result': 'no_response'}))
-          else:
-              try:
-                  payload = json.loads(path.read_text())
-              except Exception:
-                  payload = {}
-              print(json.dumps({
-                  'ai_binding_ok': bool(payload.get('ok')),
-                  'response_kind': payload.get('response_kind'),
-                  'text_present': bool(payload.get('text_present')),
-                  'error_name': payload.get('error_name'),
-              }, sort_keys=True))
+          try:
+              payload = json.loads(path.read_text())
+          except Exception:
+              payload = {}
+          print(json.dumps({
+              'ai_binding_ok': bool(payload.get('ok')),
+              'response_kind': payload.get('response_kind'),
+              'text_present': bool(payload.get('text_present')),
+              'error_name': payload.get('error_name'),
+          }, sort_keys=True))
           PY
