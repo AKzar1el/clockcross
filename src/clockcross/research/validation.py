@@ -13,6 +13,10 @@ import pandas as pd
 
 from clockcross.research.metrics import summarize_returns
 
+Thesis = Literal["continuation", "reversion"]
+Normalization = Literal["raw", "zscore"]
+Horizon = Literal["forward_30m_return", "forward_60m_return"]
+
 
 class ResearchVerdict(StrEnum):
     GO = "GO"
@@ -28,10 +32,10 @@ class Fold:
 
 @dataclass(frozen=True)
 class CandidateConfig:
-    thesis: Literal["continuation", "reversion"]
-    normalization: Literal["raw", "zscore"]
+    thesis: Thesis
+    normalization: Normalization
     threshold: float
-    horizon: Literal["forward_30m_return", "forward_60m_return"]
+    horizon: Horizon
     beta_lookback: int = 20
 
 
@@ -55,9 +59,9 @@ class EvaluationConfig:
     min_total_signals: int = 20
     beta_lookbacks: tuple[int, ...] = (10, 20, 40)
     thresholds: tuple[float, ...] = (0.5, 1.0, 1.5)
-    normalizations: tuple[str, ...] = ("raw", "zscore")
-    theses: tuple[str, ...] = ("continuation", "reversion")
-    horizons: tuple[str, ...] = ("forward_30m_return", "forward_60m_return")
+    normalizations: tuple[Normalization, ...] = ("raw", "zscore")
+    theses: tuple[Thesis, ...] = ("continuation", "reversion")
+    horizons: tuple[Horizon, ...] = ("forward_30m_return", "forward_60m_return")
     friction_bps: tuple[int, ...] = (0, 25, 50, 100)
 
 
