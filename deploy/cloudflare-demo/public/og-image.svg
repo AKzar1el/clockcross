@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <defs>
+    <radialGradient id="blue" cx="0" cy="0" r="1" gradientTransform="translate(1010 100) rotate(145) scale(420 310)" gradientUnits="userSpaceOnUse"><stop stop-color="#7cc7ff" stop-opacity=".22"/><stop offset="1" stop-color="#7cc7ff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="mint" cx="0" cy="0" r="1" gradientTransform="translate(170 560) rotate(-35) scale(430 300)" gradientUnits="userSpaceOnUse"><stop stop-color="#79f2c0" stop-opacity=".18"/><stop offset="1" stop-color="#79f2c0" stop-opacity="0"/></radialGradient>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse"><path d="M48 0H0V48" fill="none" stroke="#edf2f7" stroke-opacity=".035"/></pattern>
+    <linearGradient id="signal" x1="872" y1="475" x2="1061" y2="193" gradientUnits="userSpaceOnUse"><stop stop-color="#79f2c0"/><stop offset="1" stop-color="#7cc7ff"/></linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#0b0f17"/>
+  <rect width="1200" height="630" fill="url(#blue)"/><rect width="1200" height="630" fill="url(#mint)"/><rect width="1200" height="630" fill="url(#grid)"/>
+  <text x="78" y="95" fill="#79f2c0" font-family="Inter,Arial,sans-serif" font-size="22" font-weight="700" letter-spacing="3">ALPACA AI TRADING AGENTS HACKATHON</text>
+  <text x="78" y="247" fill="#edf2f7" font-family="Inter,Arial,sans-serif" font-size="90" font-weight="730" letter-spacing="-5">ClockCross</text>
+  <text x="78" y="326" fill="#c8d2df" font-family="Inter,Arial,sans-serif" font-size="34" font-weight="520">Crypto-to-equity repricing.</text>
+  <text x="78" y="372" fill="#9aa8ba" font-family="Inter,Arial,sans-serif" font-size="34" font-weight="520">Bounded COIN options execution.</text>
+  <g transform="translate(830 135)">
+    <circle cx="140" cy="160" r="118" fill="#111722" stroke="#c8d2df" stroke-width="10"/>
+    <path d="M140 19v39M140 262v39M-1 160h39M242 160h39" stroke="#52647a" stroke-width="8" stroke-linecap="round"/>
+    <path d="M58 241 110 186 151 208 236 75" fill="none" stroke="url(#signal)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="236" cy="75" r="13" fill="#7cc7ff"/><circle cx="58" cy="241" r="13" fill="#79f2c0"/>
+    <circle cx="140" cy="160" r="14" fill="#0b0f17" stroke="#edf2f7" stroke-width="8"/>
+  </g>
+  <rect x="78" y="489" width="600" height="1" fill="#263244"/>
+  <text x="78" y="535" fill="#9aa8ba" font-family="SFMono-Regular,Consolas,monospace" font-size="20">evidence-first · defined-risk · paper trading</text>
+</svg>
