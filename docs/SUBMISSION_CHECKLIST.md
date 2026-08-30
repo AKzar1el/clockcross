@@ -13,32 +13,33 @@
 
 - [ ] Autonomous ClockCross episode demonstrated.
 - [ ] Alpaca Trading API used for paper MLeg execution.
-- [ ] Alpaca MCP read-only context interaction demonstrated/logged.
-- [ ] Options trading demonstrated.
-- [ ] Featherless AI model actually invoked in the submitted workflow if claiming partner integration.
+- [x] Alpaca MCP read-only context interaction demonstrated/logged.
+- [ ] Options trading demonstrated through the competition episode.
+- [x] Authenticated Cloudflare Workers AI gateway invoked with a schema-valid bounded decision.
 
 ## Evidence
 
-- [ ] `artifacts/research/verdict.json` matches the immutable real research run.
-- [ ] `MUTATE` result and 100 bps friction failure remain disclosed.
-- [ ] COIN-only mutation documented.
-- [ ] MSTR negative 2026 result disclosed.
-- [ ] QQQ control disclosed.
-- [ ] Live signal policy hash/artifact frozen before competition operation.
+- [x] `artifacts/research/verdict.json` matches the immutable real research run.
+- [x] `MUTATE` result and 100 bps friction failure remain disclosed.
+- [x] COIN-only mutation documented.
+- [x] MSTR negative 2026 result disclosed.
+- [x] QQQ control disclosed.
+- [x] Live signal policy hash/artifact frozen before competition operation.
 - [ ] Trades **and abstentions** visible in the evidence console.
 - [ ] Actual Alpaca account P&L/equity captured after competition run.
 
 ## Repository / quality
 
-- [ ] Public GitHub repository.
-- [ ] MIT license.
-- [ ] `pytest -q` passes on Python 3.12.
-- [ ] Ruff passes.
-- [ ] mypy passes.
-- [ ] Repository secret scan passes.
-- [ ] No `.env`, raw API keys, account secrets, or raw market cache committed.
+- [x] Public GitHub repository.
+- [x] MIT license.
+- [ ] `pytest -q` passes on final submission commit.
+- [ ] Ruff passes on final submission commit.
+- [ ] mypy passes on final submission commit.
+- [ ] Repository secret scan passes on final submission commit.
+- [x] No `.env`, raw API keys, account secrets, or raw market cache committed.
 - [ ] CI green on submission commit.
-- [ ] Deployment health and readiness endpoints return success.
+- [x] AI gateway health and authenticated schema smoke test passed.
+- [ ] Evidence-console deployment health/readiness returns success.
 
 ## Lablab submission
 
@@ -51,7 +52,7 @@
 - [ ] Video presentation.
 - [ ] Slide presentation.
 - [ ] Alpaca paper trading account ID.
-- [ ] One-page AI logic / risk gates / Alpaca implementation write-up.
+- [x] One-page AI logic / risk gates / Alpaca implementation write-up.
 
 ## Build in public
 
@@ -67,6 +68,9 @@ Tag lablab.ai and Alpaca as required by the event page.
 
 ## Final operational gate
 
+- [x] Development-account external preflight passed 5/5 on 2026-08-30.
+- [ ] Development-account MLeg smoke/cancel test completed while U.S. options are open.
+- [ ] Fresh competition account passes pristine startup gate without smoke trades.
 - [ ] No unresolved `ORDER_SUBMITTED`/indeterminate episode.
 - [ ] No undocumented manual intervention.
 - [ ] Final-day account state captured before deadline.
