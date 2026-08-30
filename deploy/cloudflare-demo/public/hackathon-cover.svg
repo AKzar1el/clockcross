@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900">
+  <defs>
+    <radialGradient id="blue" cx="0" cy="0" r="1" gradientTransform="translate(1400 100) rotate(145) scale(590 430)" gradientUnits="userSpaceOnUse"><stop stop-color="#7cc7ff" stop-opacity=".22"/><stop offset="1" stop-color="#7cc7ff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="mint" cx="0" cy="0" r="1" gradientTransform="translate(190 820) rotate(-32) scale(600 390)" gradientUnits="userSpaceOnUse"><stop stop-color="#79f2c0" stop-opacity=".16"/><stop offset="1" stop-color="#79f2c0" stop-opacity="0"/></radialGradient>
+    <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse"><path d="M60 0H0V60" fill="none" stroke="#edf2f7" stroke-opacity=".035"/></pattern>
+    <linearGradient id="signal" x1="1130" y1="690" x2="1404" y2="280" gradientUnits="userSpaceOnUse"><stop stop-color="#79f2c0"/><stop offset="1" stop-color="#7cc7ff"/></linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="#0b0f17"/>
+  <rect width="1600" height="900" fill="url(#blue)"/><rect width="1600" height="900" fill="url(#mint)"/><rect width="1600" height="900" fill="url(#grid)"/>
+  <rect x="92" y="92" width="1416" height="716" rx="26" fill="#0b0f17" fill-opacity=".36" stroke="#263244"/>
+  <text x="150" y="185" fill="#79f2c0" font-family="Inter,Arial,sans-serif" font-size="25" font-weight="750" letter-spacing="4">ALPACA AI TRADING AGENTS HACKATHON · 2026</text>
+  <text x="150" y="395" fill="#edf2f7" font-family="Inter,Arial,sans-serif" font-size="142" font-weight="730" letter-spacing="-8">ClockCross</text>
+  <text x="150" y="497" fill="#c8d2df" font-family="Inter,Arial,sans-serif" font-size="45" font-weight="540">24/7 crypto context.</text>
+  <text x="150" y="558" fill="#9aa8ba" font-family="Inter,Arial,sans-serif" font-size="45" font-weight="540">Bounded U.S. options execution.</text>
+  <g transform="translate(1075 205)">
+    <circle cx="190" cy="245" r="160" fill="#111722" stroke="#c8d2df" stroke-width="14"/>
+    <path d="M190 50v52M190 388v52M-5 245h52M333 245h52" stroke="#52647a" stroke-width="11" stroke-linecap="round"/>
+    <path d="M80 355 150 281 205 312 320 132" fill="none" stroke="url(#signal)" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="320" cy="132" r="17" fill="#7cc7ff"/><circle cx="80" cy="355" r="17" fill="#79f2c0"/>
+    <circle cx="190" cy="245" r="19" fill="#0b0f17" stroke="#edf2f7" stroke-width="10"/>
+  </g>
+  <text x="150" y="708" fill="#9aa8ba" font-family="SFMono-Regular,Consolas,monospace" font-size="23">evidence-first · chronological validation · defined-risk spreads · Alpaca MCP</text>
+</svg>

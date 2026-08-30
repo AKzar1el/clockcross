@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 96" role="img" aria-labelledby="title">
+  <title id="title">ClockCross</title>
+  <defs>
+    <linearGradient id="signal" x1="14" y1="74" x2="76" y2="17" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#79f2c0"/>
+      <stop offset="1" stop-color="#7cc7ff"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(4 4)">
+    <circle cx="44" cy="44" r="29" fill="none" stroke="#c8d2df" stroke-width="5" opacity=".9"/>
+    <path d="M44 8v12M44 68v12M8 44h12M68 44h12" stroke="#52647a" stroke-width="4" stroke-linecap="round"/>
+    <path d="M24 63 37 50 46 55 66 27" fill="none" stroke="url(#signal)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="66" cy="27" r="4.5" fill="#7cc7ff"/>
+    <circle cx="24" cy="63" r="4.5" fill="#79f2c0"/>
+    <circle cx="44" cy="44" r="5" fill="#0b0f17" stroke="#edf2f7" stroke-width="3"/>
+  </g>
+  <text x="101" y="61" fill="#edf2f7" font-family="Inter,Arial,sans-serif" font-size="42" font-weight="720" letter-spacing="-1.7">ClockCross</text>
+</svg>

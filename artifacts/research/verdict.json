@@ -1,0 +1,87 @@
+{
+  "artifact_kind": "immutable_research_digest",
+  "research_window": {
+    "start": "2025-01-02",
+    "end": "2026-08-28"
+  },
+  "source_zip_sha256": "6299444d518b592c11a5fb47c5fbd8a9a41e962e39fdce1d6d4646723d2f7a69",
+  "source_full_verdict_sha256": "3eefeaf7fa1fc40938a3aa1f0f757cdc90548375ea19074b1da43c7391ab974d",
+  "source_coin_verdict_sha256": "357c415ebf971f94a5b10459b6fe435e4221779729c37a0dbd6ffd841a8aadfd",
+  "verdict": "MUTATE",
+  "historical_stock_feed": "sip",
+  "live_stock_feed": "delayed_sip",
+  "feature_freeze_et": "09:25:00",
+  "confirmation_end_et": "09:40:00",
+  "decision_time_et": "09:55:00",
+  "min_total_signals": 34,
+  "coverage": {
+    "COIN": {"10": 338, "20": 338, "40": 338},
+    "MSTR": {"10": 351, "20": 351, "40": 351},
+    "QQQ": {"10": 359, "20": 359, "40": 359}
+  },
+  "control": {
+    "symbol": "QQQ",
+    "mean_test_return": -0.00015599394038748579,
+    "mean_test_return_bps": -1.56
+  },
+  "symbols": {
+    "COIN": {
+      "verdict": "MUTATE",
+      "total_signals": 82,
+      "mean_test_return": 0.002745696957097104,
+      "mean_test_return_bps": 27.46,
+      "checks": {
+        "multiple_positive_folds": true,
+        "enough_episodes": true,
+        "positive_mean": true,
+        "friction_survives": false,
+        "not_single_episode_driven": true,
+        "control_not_equally_strong": true
+      },
+      "metadata": {
+        "config_hash": "2b452f02bea99067",
+        "fold_count": 13,
+        "friction_bps": [0, 25, 50, 100],
+        "leave_one_out_max_mean_impact": 0.0007729964800295293,
+        "beta_lookbacks": [10, 20, 40]
+      },
+      "regime_2026": {
+        "signal_count": 38,
+        "mean_signed_return_bps": 84.07,
+        "positive_recent_folds": 4,
+        "negative_recent_folds": 2
+      }
+    },
+    "MSTR": {
+      "verdict": "MUTATE",
+      "total_signals": 65,
+      "mean_test_return": 0.003139826554959722,
+      "mean_test_return_bps": 31.40,
+      "checks": {
+        "multiple_positive_folds": true,
+        "enough_episodes": true,
+        "positive_mean": true,
+        "friction_survives": false,
+        "not_single_episode_driven": true,
+        "control_not_equally_strong": true
+      },
+      "metadata": {
+        "config_hash": "2b452f02bea99067",
+        "fold_count": 14,
+        "friction_bps": [0, 25, 50, 100],
+        "leave_one_out_max_mean_impact": 0.0008765216618706099,
+        "beta_lookbacks": [10, 20, 40]
+      },
+      "regime_2026": {
+        "signal_count": 34,
+        "mean_signed_return_bps": -22.72
+      },
+      "execution_eligible": false
+    }
+  },
+  "limitations": [
+    "The original 100 bps underlying-friction promotion check failed for both COIN and MSTR and remains a failure.",
+    "The digest is not an options backtest; live option-chain feasibility is a separate deterministic gate.",
+    "Paper-trading results are hypothetical and do not predict future performance."
+  ]
+}
