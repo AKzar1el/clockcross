@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 def register_runtime_subcommands(subparsers: Any) -> None:
     subparsers.add_parser("preflight")
+    subparsers.add_parser("smoke-mleg")
     run_once = subparsers.add_parser("run-once")
     run_once.add_argument("--date", required=True, type=date.fromisoformat)
     run_once.add_argument("--mode", choices=("dry-run", "paper"), default="dry-run")
