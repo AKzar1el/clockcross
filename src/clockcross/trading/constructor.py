@@ -23,8 +23,6 @@ class ConstructionPolicy(BaseModel):
     long_delta_target: Decimal = Decimal("0.55")
     short_delta_target: Decimal = Decimal("0.35")
     delta_tolerance: Decimal = Decimal("0.15")
-    min_open_interest: int = Field(default=100, ge=0)
-    min_volume: int = Field(default=1, ge=0)
     max_net_debit: Decimal | None = Field(default=None, gt=Decimal("0"))
 
     @model_validator(mode="after")
@@ -75,10 +73,6 @@ def _eligible(
     if spread is None or spread > policy.max_relative_spread:
         return False
     if contract.delta is None:
-        return False
-    if contract.open_interest is not None and contract.open_interest < policy.min_open_interest:
-        return False
-    if contract.volume is not None and contract.volume < policy.min_volume:
         return False
     return True
 
