@@ -15,7 +15,7 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKERS_TOKEN }}
     steps:
-      - name: Probe Workers AI binding through Wrangler remote development
+      - name: Probe Qwen3 through Wrangler remote AI binding
         shell: bash
         run: |
           set -euo pipefail
@@ -34,16 +34,22 @@ jobs:
           export default {
             async fetch(_request, env) {
               try {
-                const result = await env.AI.run("@cf/openai/gpt-oss-20b", {
+                const result = await env.AI.run("@cf/qwen/qwen3-30b-a3b-fp8", {
                   messages: [
                     { role: "system", content: "Reply with exactly OK." },
                     { role: "user", content: "Health check" }
                   ],
+                  chat_template_kwargs: { enable_thinking: false },
                   temperature: 0,
                   max_tokens: 16
                 });
                 const text = result?.response ?? result?.choices?.[0]?.message?.content ?? "";
-                return Response.json({ ok: Boolean(text), response_kind: typeof result, text_present: Boolean(text) });
+                return Response.json({
+                  ok: Boolean(text),
+                  result_keys: result && typeof result === "object" ? Object.keys(result).sort() : [],
+                  response_kind: typeof result,
+                  text_present: Boolean(text)
+                });
               } catch (error) {
                 return Response.json({
                   ok: false,
@@ -99,6 +105,7 @@ jobs:
               payload = {}
           print(json.dumps({
               'ai_binding_ok': bool(payload.get('ok')),
+              'result_keys': payload.get('result_keys'),
               'response_kind': payload.get('response_kind'),
               'text_present': bool(payload.get('text_present')),
               'error_name': payload.get('error_name'),
