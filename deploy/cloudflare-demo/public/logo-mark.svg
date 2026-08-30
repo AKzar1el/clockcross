@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">ClockCross mark</title>
+  <desc id="desc">A clock ring intersected by a cross-market signal.</desc>
+  <defs>
+    <linearGradient id="signal" x1="28" y1="98" x2="101" y2="28" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#79f2c0"/>
+      <stop offset="1" stop-color="#7cc7ff"/>
+    </linearGradient>
+  </defs>
+  <circle cx="64" cy="64" r="41" fill="none" stroke="#c8d2df" stroke-width="7" opacity=".9"/>
+  <path d="M64 16v18M64 94v18M16 64h18M94 64h18" stroke="#52647a" stroke-width="6" stroke-linecap="round"/>
+  <path d="M35 91 53 72 66 80 95 38" fill="none" stroke="url(#signal)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="95" cy="38" r="6" fill="#7cc7ff"/>
+  <circle cx="35" cy="91" r="6" fill="#79f2c0"/>
+  <circle cx="64" cy="64" r="7" fill="#0b0f17" stroke="#edf2f7" stroke-width="4"/>
+</svg>
