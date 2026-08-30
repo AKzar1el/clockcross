@@ -2,7 +2,7 @@
 
 **An autonomous AI options agent that measures crypto-to-equity repricing gaps, validates them chronologically, and expresses only evidence-backed COIN signals through defined-risk Alpaca spreads.**
 
-ClockCross was built for the **Alpaca AI Trading Agents Hackathon**. It uses Alpaca's paper-trading stack, Alpaca MCP, and an OpenAI-compatible Featherless model while keeping trade construction, risk, and order idempotency deterministic.
+ClockCross was built for the **Alpaca AI Trading Agents Hackathon**. It uses Alpaca's paper-trading stack, Alpaca MCP, and an authenticated Cloudflare Workers AI gateway backed by a schema-bounded Llama 3.3 70B model while keeping trade construction, risk, and order idempotency deterministic.
 
 > Paper trading is a simulation. Nothing in this repository is investment advice, and the research results do not imply future performance.
 
@@ -53,7 +53,21 @@ The model sees a schema-bounded context only after deterministic evidence and op
 
 It cannot choose a new symbol, invent a contract, change DTE, change position sizing, bypass stale quotes, override buying power, exceed portfolio risk, or submit an order directly. Malformed output, transport errors, company-specific news, or ambiguous context fail closed to `abstain`.
 
-Alpaca MCP is also **read-only inside ClockCross**: trading toolsets are disabled. Atomic multi-leg execution uses Alpaca's Trading REST API because deterministic request validation and `client_order_id` reconciliation are easier to audit there.
+The AI endpoint is a small authenticated Cloudflare Worker at `clockcross-ai-gateway.tomi-seregi99.workers.dev`. The Worker fixes the provider model to Cloudflare's Llama 3.3 70B fast variant, requests the exact ClockCross JSON schema at the provider boundary, validates it again, and returns the OpenAI-compatible response shape consumed by the Python adjudicator. The adjudicator then performs its own Pydantic validation, giving the decision path two independent schema checks.
+
+Alpaca MCP is **read-only inside ClockCross**: trading toolsets are disabled. Atomic multi-leg execution uses Alpaca's Trading REST API because deterministic request validation and `client_order_id` reconciliation are easier to audit there.
+
+## Live preflight evidence
+
+A full encrypted cloud preflight on **2026-08-30** passed all five external surfaces against the development paper account:
+
+- paper account active and unblocked;
+- options approved/trading Level 3;
+- **416 COIN option contracts** parsed in the 7–21 DTE window on the indicative feed;
+- official Alpaca MCP `get_clock` succeeded;
+- the deployed AI gateway returned a schema-valid bounded decision.
+
+The preflight is read-only: it does not create a ledger episode or instantiate the order-execution path.
 
 ## Risk and execution
 
@@ -79,7 +93,7 @@ uv sync --extra dev
 cp .env.example .env
 ```
 
-Set development-paper Alpaca credentials and your Featherless/OpenAI-compatible model configuration in `.env`. Never use the final hackathon account for destructive integration tests.
+Set development-paper Alpaca credentials plus the gateway bearer in `LLM_API_KEY`. The checked-in URL/model defaults already point to the verified ClockCross Cloudflare gateway; no AI credential is committed. Never use the final hackathon account for destructive integration tests.
 
 Research:
 
@@ -138,7 +152,7 @@ uv run ruff check .
 uv run mypy src/clockcross
 ```
 
-The suite covers leakage boundaries, option-chain normalization, AI fail-closed behavior, risk caps, state-machine legality, SQLite idempotency, uncertain-order reconciliation, public API redaction, live-signal freezing, account-role safeguards, read-only external preflight, and repository secret scanning.
+The suite covers leakage boundaries, option-chain normalization, AI fail-closed behavior, Cloudflare gateway contract constraints, risk caps, state-machine legality, SQLite idempotency, uncertain-order reconciliation, public API redaction, live-signal freezing, account-role safeguards, read-only external preflight, and repository secret scanning.
 
 ## Project documents
 
