@@ -63,9 +63,9 @@ def valid_json(**overrides):
 
 def make(http):
     return Adjudicator(
-        base_url="https://api.featherless.ai/v1",
+        base_url="https://clockcross-ai-gateway.example/v1",
         api_key="test-key",
-        model="Qwen/test-model",
+        model="clockcross-test-model",
         http_client=http,
     )
 
@@ -90,12 +90,12 @@ def test_valid_decision_is_schema_validated():
     decision = make(http).decide(context())
     assert decision.action is AgentAction.CONTINUATION
     assert decision.driver is AgentDriver.CRYPTO_CROSS_MARKET
-    assert http.calls[0][0] == "https://api.featherless.ai/v1/chat/completions"
+    assert http.calls[0][0] == "https://clockcross-ai-gateway.example/v1/chat/completions"
     assert http.calls[0][2]["temperature"] == 0
-    assert http.calls[0][2]["chat_template_kwargs"] == {"enable_thinking": False}
+    assert "chat_template_kwargs" not in http.calls[0][2]
 
 
-def test_featherless_application_headers_are_sent():
+def test_application_attribution_headers_are_sent():
     http = FakeHttp(valid_json())
     make(http).decide(context())
     headers = http.calls[0][1]
