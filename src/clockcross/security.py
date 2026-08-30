@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+from collections.abc import Iterator
 from pathlib import Path
 
 _TEXT_SUFFIXES = {"", ".py", ".md", ".json", ".toml", ".yaml", ".yml", ".txt", ".html", ".env", ".example", ".ini", ".cfg", ".sh", ".ps1"}
@@ -11,7 +12,7 @@ _OPENAI_STYLE = re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b")
 _PLACEHOLDERS = {"", "your-key-here", "your-secret-here", "your-api-key", "changeme"}
 
 
-def _iter_text_files(root: Path):
+def _iter_text_files(root: Path) -> Iterator[Path]:
     for path in root.rglob("*"):
         if not path.is_file() or any(part in _SKIP_PARTS for part in path.parts):
             continue
@@ -29,7 +30,11 @@ def scan_text_tree(root: str | Path) -> list[str]:
     """Return human-readable findings for obvious committed credential material."""
     root = Path(root)
     findings: list[str] = []
-    active_values = {value for name in ("ALPACA_API_KEY", "ALPACA_SECRET_KEY", "LLM_API_KEY") if (value := os.getenv(name)) and len(value) >= 8}
+    active_values = {
+        value
+        for name in ("ALPACA_API_KEY", "ALPACA_SECRET_KEY", "LLM_API_KEY")
+        if (value := os.getenv(name)) and len(value) >= 8
+    }
     for path in _iter_text_files(root):
         try:
             text = path.read_text(encoding="utf-8")
