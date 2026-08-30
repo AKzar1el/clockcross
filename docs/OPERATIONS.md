@@ -1,171 +1,63 @@
-# ClockCross Operations Runbook
+# ClockCross Operations
 
-## 1. Account separation
+ClockCross is paper-only. Never point it at Alpaca's live trading endpoint.
 
-Use two distinct Alpaca paper accounts.
+## Development account
 
-**Development account**
-- API/MCP probes, option-chain tests, order smoke tests, cancellations, failure testing.
-- `CLOCKCROSS_ACCOUNT_ROLE=development`.
-- Paper order submission is disabled unless `CLOCKCROSS_ALLOW_DEV_ORDER=true` is explicitly set.
-
-**Competition account**
-- Create fresh specifically for the hackathon.
-- Starting equity must be exactly `$100,000` before the first ClockCross episode.
-- No manual/smoke trades before autonomous operation.
-- `CLOCKCROSS_ACCOUNT_ROLE=competition`.
-- `CLOCKCROSS_ALLOW_DEV_ORDER=false` always.
-- Do not reset the account once competition operation begins.
-
-Never reuse development credentials for the final competition account.
-
-## 2. Required environment
-
-Start from `.env.example`.
-
-Required secrets:
-
-- `ALPACA_API_KEY`
-- `ALPACA_SECRET_KEY`
-- `LLM_API_KEY` — bearer for the authenticated ClockCross AI gateway
-
-Non-secret defaults:
-
-- `LLM_BASE_URL=https://clockcross-ai-gateway.tomi-seregi99.workers.dev/v1`
-- `LLM_MODEL=clockcross-cloudflare-llama-3.3-70b`
-
-The gateway is deployed from `deploy/cloudflare-ai-gateway/`. It fixes the underlying provider model to Cloudflare Workers AI Llama 3.3 70B fast, requests the exact ClockCross JSON schema from Workers AI, validates it again, and exposes only an authenticated OpenAI-compatible `/v1/chat/completions` adapter plus a read-only `/health` route.
-
-The current hackathon bootstrap derives the gateway bearer only inside the encrypted cloud runner and stores the matching value as Cloudflare Worker secret `CLOCKCROSS_AI_AUTH`. The bearer is never committed or printed. After the event, replace this bootstrap coupling with a dedicated random gateway bearer when rotating the temporary Cloudflare credential.
-
-Do not commit `.env`, credentials, account IDs, API response headers, raw market caches, or gateway bearer values.
-
-## 3. Preflight
-
-Before every paper run, verify the code first:
+Use the development paper account for preflight, dry runs, and the single controlled MLeg smoke test.
 
 ```bash
-uv run pytest -q
-uv run ruff check .
-uv run mypy src/clockcross
-```
-
-Then run the external read-only preflight:
-
-```bash
+export CLOCKCROSS_ACCOUNT_ROLE=development
+export CLOCKCROSS_ALLOW_DEV_ORDER=false
 uv run clockcross preflight
-```
-
-`preflight` is safe to run while U.S. markets are closed. It does **not** open the SQLite decision ledger, create an episode, instantiate the trading execution service, or call an Alpaca order endpoint. It checks exactly five external surfaces:
-
-1. Alpaca paper account is `ACTIVE` and unblocked;
-2. account-approved and current options trading levels both permit Level 3 spreads; if Alpaca also reports a configuration maximum, that value must permit Level 3 too;
-3. the current COIN option chain is parseable and contains at least one 7–21 DTE contract;
-4. read-only Alpaca MCP `get_clock` succeeds;
-5. the configured AI provider returns a schema-valid bounded decision.
-
-The command exits `0` only when all five checks pass and exits `2` when any check fails. Do not start paper mode after a failed preflight; inspect the named failed check first.
-
-**Verified Sunday gate (2026-08-30):** full encrypted cloud preflight passed 5/5 against the development account: account active/unblocked, Level 3, 416 parseable COIN contracts in the 7–21 DTE window via indicative feed, Alpaca MCP `get_clock`, and a schema-valid bounded AI decision through the deployed Cloudflare gateway.
-
-**Closed-market note:** weekend/pre-open option quotes are expected to be old. The read-only preflight deliberately checks chain coverage and parseability, not the live 60-second quote-freshness rule. The actual 09:55 ET decision pipeline still enforces live quote freshness before a spread can be constructed or submitted.
-
-The Alpaca MCP server may emit a FastMCP protocol-discovery validation warning during startup. Treat it as non-fatal only when the requested `get_clock` call itself succeeds; the preflight check remains fail-closed on an actual MCP tool failure.
-
-Verify the frozen artifacts exist:
-
-- `artifacts/research/verdict.json`
-- `docs/research/2026-08-29-live-signal-policy.json`
-- `docs/superpowers/specs/2026-08-29-coin-options-mutation.md`
-
-Competition startup additionally verifies at the paper-run gate:
-
-- paper endpoint only;
-- account `ACTIVE` and not trading-blocked;
-- account-approved options level >= 3;
-- current options trading level >= 3;
-- configuration max >= 3 when Alpaca reports that optional field;
-- exactly `$100,000` equity before the first episode;
-- no existing positions before the first episode.
-
-The read-only preflight does not replace those pristine competition-account checks; they remain mandatory immediately before the first competition paper episode.
-
-### Sunday / Monday sequence
-
-**Sunday — complete:**
-
-1. CI-equivalent checks passed;
-2. full development-account preflight passed 5/5;
-3. authenticated Cloudflare AI gateway deployed and smoke-tested;
-4. no development or competition order was created by preflight.
-
-**Monday:**
-
-1. repeat `clockcross preflight` before the U.S. session;
-2. use the development account for the explicitly approved MLeg smoke/cancel test;
-3. keep `CLOCKCROSS_ALLOW_DEV_ORDER=false` for competition credentials;
-4. create/use the fresh competition account separately — do not smoke-test it;
-5. after the 09:55 ET information boundary, let competition runtime enforce the pristine `$100,000`/empty-account gate before the first autonomous episode.
-
-## 4. Daily decision boundary
-
-All market semantics use `America/New_York`.
-
-- 09:25 ET — feature freeze.
-- 09:30–09:40 ET — opening confirmation.
-- 09:55 ET — earliest autonomous decision.
-
-At 09:55, stock historical reconstruction is capped at 09:40 SIP data. Never widen that end time to “now” on the Basic data plan.
-
-Run one episode:
-
-```bash
 uv run clockcross run-once --date YYYY-MM-DD --mode dry-run
 ```
 
-When development smoke testing has been explicitly approved:
+The MLeg smoke test is a separate, explicit command. It is restricted to the development account, requires options Level 3, requires the U.S. market to be open, submits one deliberately non-marketable `$0.01` COIN debit vertical, immediately cancels the parent MLeg order, and fails unless cancellation is confirmed.
 
 ```bash
-uv run clockcross run-once --date YYYY-MM-DD --mode paper
+export CLOCKCROSS_ACCOUNT_ROLE=development
+export CLOCKCROSS_ALLOW_DEV_ORDER=true
+uv run clockcross smoke-mleg
 ```
 
-A dry run may reach `RISK_APPROVED` but never calls Alpaca order submission.
+Do not leave `CLOCKCROSS_ALLOW_DEV_ORDER=true` set after the smoke test.
 
-## 5. Restart / uncertain order
+## Competition account
 
-If a run ends at `ORDER_SUBMITTED` or reports `order_indeterminate`, **do not run a new episode for that date**.
-
-Use:
+Create a brand-new Alpaca paper account for the hackathon with exactly `$100,000` starting equity. Do not reuse the development account and do not execute a smoke order on the competition account.
 
 ```bash
-uv run clockcross reconcile --date YYYY-MM-DD
+export CLOCKCROSS_ACCOUNT_ROLE=competition
+export CLOCKCROSS_ALLOW_DEV_ORDER=false
+uv run clockcross preflight
 ```
 
-`reconcile` does not load the model or signal stack and cannot submit a new order. It only looks up the persisted deterministic Alpaca `client_order_id` and updates the existing state.
+Before the first autonomous competition session, verify the account is ACTIVE, unblocked, options Level 3, has exactly `$100,000` equity, and has no open positions. Read-only preflight checks are allowed; order smoke tests are not.
 
-If reconciliation still cannot prove the order state, stop and inspect Alpaca manually. Do not retry the POST.
+## Sunday 2026-08-30 status
 
-## 6. Evidence console
+Completed against the encrypted development-paper credentials:
 
-```bash
-uv run clockcross serve --host 0.0.0.0 --port 8000
-```
+- Full cloud preflight passed all five checks: active/unblocked account, options Level 3, COIN option-chain availability, Alpaca MCP `get_clock`, and schema-valid AI output.
+- The COIN 7–21 DTE indicative chain returned 416 parseable contracts during preflight.
+- The Cloudflare Workers AI gateway is deployed and authenticated; it uses a fixed Llama 3.3 70B model with the exact ClockCross decision schema.
+- Preflight is read-only and created no orders.
 
-Public routes are read-only. The console strips account identifiers, credential-like keys, and provider payloads. It shows rounded account status, episode/abstention history, and compact research evidence.
+## Monday 2026-08-31 sequence
 
-## 7. Final-day controls
+1. Repeat `uv run clockcross preflight` using the development account.
+2. After the U.S. options market is open and opening spreads have settled, run the explicit development-account `uv run clockcross smoke-mleg` command once with `CLOCKCROSS_ALLOW_DEV_ORDER=true`.
+3. Confirm the smoke result reports `final_status: canceled`; then immediately return `CLOCKCROSS_ALLOW_DEV_ORDER=false`.
+4. Create/configure the fresh `$100,000` competition paper account. Do not smoke-test it.
+5. Run competition preflight read-only.
+6. Allow the autonomous competition session only after the configured 09:55 ET decision boundary and only if all signal, AI, option-feasibility, and deterministic risk gates approve a trade.
 
-ClockCross blocks new competition entries at 10:20 ET on 2026-09-04, leaving buffer before the 17:00 CEST submission deadline. Before submission:
+## Hard safety invariants
 
-1. reconcile every non-terminal episode;
-2. inspect account positions/orders in Alpaca;
-3. document any emergency manual intervention;
-4. capture final account P&L/equity evidence;
-5. ensure the submitted account ID is the dedicated competition paper account;
-6. rotate development Alpaca, Cloudflare, GitHub, npm, and gateway credentials after testing and never publish the competition keys.
-
-## 8. Change discipline after competition start
-
-Allowed: correctness/safety fixes with commit + changelog/ledger note.
-
-Not allowed: manual trade selection, loss-driven threshold retuning, account resets, silently changing the live policy, adding MSTR/QQQ execution, or weakening risk gates to create trades.
+- Alpaca trading endpoint is always `https://paper-api.alpaca.markets`.
+- Live execution is restricted to `COIN`.
+- MLeg orders are defined-risk 1:1 vertical debit spreads and use limit prices.
+- The competition account rejects the development-order opt-in flag.
+- 0DTE is excluded; live option selection is 7–21 DTE.
+- Missing/stale data, failed readiness, invalid AI output, risk rejection, or uncertain order state means abstain/fail closed.
