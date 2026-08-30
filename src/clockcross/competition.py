@@ -210,7 +210,7 @@ class CompetitionOrchestrator:
                 cancel_deadline = self._current_time() + __import__("datetime").timedelta(
                     seconds=self._policy.cancel_confirm_seconds
                 )
-                while self._current_time() <= cancel_deadline:
+                while self._current_time() < cancel_deadline:
                     confirmed = self._scheduler.reconcile_session(session_date)
                     confirmed_status = self._status(confirmed.order)
                     if confirmed_status == "partially_filled":
@@ -313,7 +313,7 @@ class CompetitionOrchestrator:
         deadline = self._current_time() + __import__("datetime").timedelta(
             seconds=self._policy.cancel_confirm_seconds
         )
-        while self._current_time() <= deadline:
+        while self._current_time() < deadline:
             result = cast(ExecutionResult, self._execution.reconcile(order))
             status = result.status.lower()
             if status in {"canceled", "cancelled"}:
