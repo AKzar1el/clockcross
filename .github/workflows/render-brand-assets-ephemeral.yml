@@ -1,0 +1,75 @@
+name: ClockCross brand asset render ephemeral
+
+on:
+  push:
+    branches:
+      - feat/clockcross-core
+
+permissions:
+  contents: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/clockcross-core
+      - name: Render deterministic brand assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --quiet cairosvg pillow
+          python - <<'PY'
+          from pathlib import Path
+          import cairosvg
+          from PIL import Image
+
+          public = Path('deploy/cloudflare-demo/public')
+
+          def png(source: str, target: str, width: int, height: int) -> None:
+              cairosvg.svg2png(
+                  url=str(public / source),
+                  write_to=str(public / target),
+                  output_width=width,
+                  output_height=height,
+              )
+
+          png('favicon.svg', 'apple-touch-icon.png', 180, 180)
+          png('favicon.svg', 'icon-192.png', 192, 192)
+          png('favicon.svg', 'icon-512.png', 512, 512)
+          png('og-image.svg', 'og-image.png', 1200, 630)
+          png('hackathon-cover.svg', 'hackathon-cover.png', 1600, 900)
+
+          with Image.open(public / 'icon-512.png') as image:
+              image.save(
+                  public / 'favicon.ico',
+                  format='ICO',
+                  sizes=[(16, 16), (32, 32), (48, 48), (64, 64)],
+              )
+          PY
+
+          python - <<'PY'
+          from pathlib import Path
+          public = Path('deploy/cloudflare-demo/public')
+          for name in ('apple-touch-icon.png','icon-192.png','icon-512.png','og-image.png','hackathon-cover.png'):
+              data = (public / name).read_bytes()
+              assert data.startswith(b'\x89PNG\r\n\x1a\n'), name
+          assert (public / 'favicon.ico').read_bytes()[:4] == b'\x00\x00\x01\x00'
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add deploy/cloudflare-demo/public/apple-touch-icon.png \
+                  deploy/cloudflare-demo/public/icon-192.png \
+                  deploy/cloudflare-demo/public/icon-512.png \
+                  deploy/cloudflare-demo/public/og-image.png \
+                  deploy/cloudflare-demo/public/hackathon-cover.png \
+                  deploy/cloudflare-demo/public/favicon.ico
+          if git diff --cached --quiet; then
+            echo "Brand rasters already current"
+            exit 0
+          fi
+          git commit -m "feat: add rendered ClockCross brand assets"
+          git push origin HEAD:feat/clockcross-core
