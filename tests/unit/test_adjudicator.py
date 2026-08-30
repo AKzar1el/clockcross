@@ -94,6 +94,14 @@ def test_valid_decision_is_schema_validated():
     assert http.calls[0][2]["temperature"] == 0
 
 
+def test_featherless_application_headers_are_sent():
+    http = FakeHttp(valid_json())
+    make(http).decide(context())
+    headers = http.calls[0][1]
+    assert headers["X-Title"] == "ClockCross"
+    assert headers["HTTP-Referer"] == "https://github.com/AKzar1el/clockcross"
+
+
 def test_valid_reversion_and_abstain_are_allowed():
     reversion = make(FakeHttp(valid_json(action="reversion"))).decide(context())
     abstain = make(FakeHttp(valid_json(action="abstain", confidence=0.2))).decide(context())
