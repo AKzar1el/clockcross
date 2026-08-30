@@ -15,7 +15,7 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKERS_TOKEN }}
     steps:
-      - name: Probe Qwen3 prompt path through Wrangler remote AI binding
+      - name: Probe Llama structured decision through remote AI binding
         shell: bash
         run: |
           set -euo pipefail
@@ -31,30 +31,43 @@ jobs:
           }
           JSON
           cat > src/index.js <<'JS'
+          const schema = {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              action: { type: "string", enum: ["continuation", "reversion", "abstain"] },
+              confidence: { type: "number", minimum: 0, maximum: 1 },
+              idiosyncratic_news_detected: { type: "boolean" },
+              driver: { type: "string", enum: ["crypto_cross_market", "company_specific", "macro", "unclear"] },
+              reason: { type: "string", maxLength: 400 }
+            },
+            required: ["action", "confidence", "idiosyncratic_news_detected", "driver", "reason"]
+          };
+
           export default {
             async fetch(_request, env) {
               try {
-                const result = await env.AI.run("@cf/qwen/qwen3-30b-a3b-fp8", {
-                  prompt: "Reply with exactly OK.\nHealth check",
-                  chat_template_kwargs: { enable_thinking: false },
+                const result = await env.AI.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast", {
+                  messages: [
+                    { role: "system", content: "Return a conservative ClockCross trading decision. JSON only." },
+                    { role: "user", content: "COIN residual +1.5%, BTC +2%, no company-specific news. Choose continuation, reversion, or abstain." }
+                  ],
+                  response_format: { type: "json_schema", json_schema: schema },
                   temperature: 0,
-                  max_tokens: 64
+                  max_tokens: 180
                 });
-                const responseText = typeof result?.response === "string" ? result.response : "";
-                const choiceText = result?.choices?.[0]?.message?.content ?? result?.choices?.[0]?.text ?? "";
-                const text = responseText || choiceText;
-                return Response.json({
-                  ok: Boolean(text),
-                  choice_text_present: Boolean(choiceText),
-                  response_text_present: Boolean(responseText),
-                  result_keys: result && typeof result === "object" ? Object.keys(result).sort() : []
-                });
+                const candidate = result?.response ?? result?.choices?.[0]?.message?.content ?? result?.choices?.[0]?.text;
+                let parsed = candidate;
+                if (typeof parsed === "string") parsed = JSON.parse(parsed);
+                const keys = parsed && typeof parsed === "object" ? Object.keys(parsed).sort() : [];
+                const required = ["action", "confidence", "driver", "idiosyncratic_news_detected", "reason"].sort();
+                const ok = JSON.stringify(keys) === JSON.stringify(required)
+                  && ["continuation", "reversion", "abstain"].includes(parsed.action)
+                  && typeof parsed.confidence === "number"
+                  && typeof parsed.idiosyncratic_news_detected === "boolean";
+                return Response.json({ ok, keys, action_valid: ok && Boolean(parsed.action) });
               } catch (error) {
-                return Response.json({
-                  ok: false,
-                  error_name: error?.name ?? "Error",
-                  error_message: String(error?.message ?? "").slice(0, 240)
-                }, { status: 500 });
+                return Response.json({ ok: false, error_name: error?.name ?? "Error", error_message: String(error?.message ?? "").slice(0, 240) }, { status: 500 });
               }
             }
           };
@@ -97,16 +110,14 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
-          path = Path('/tmp/cf-ai-result.json')
           try:
-              payload = json.loads(path.read_text())
+              payload = json.loads(Path('/tmp/cf-ai-result.json').read_text())
           except Exception:
               payload = {}
           print(json.dumps({
-              'ai_binding_ok': bool(payload.get('ok')),
-              'choice_text_present': bool(payload.get('choice_text_present')),
-              'response_text_present': bool(payload.get('response_text_present')),
-              'result_keys': payload.get('result_keys'),
+              'structured_decision_ok': bool(payload.get('ok')),
+              'keys': payload.get('keys'),
+              'action_valid': bool(payload.get('action_valid')),
               'error_name': payload.get('error_name'),
               'error_message': payload.get('error_message'),
           }, sort_keys=True))
