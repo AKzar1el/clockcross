@@ -25,6 +25,7 @@
 - [x] MSTR negative 2026 result disclosed.
 - [x] QQQ control disclosed.
 - [x] Live signal policy hash/artifact frozen before competition operation.
+- [x] Static zero-secret judge demo deployed: `https://clockcross-demo.tomi-seregi99.workers.dev`.
 - [ ] Trades **and abstentions** visible in the evidence console.
 - [ ] Actual Alpaca account P&L/equity captured after competition run.
 
@@ -48,7 +49,7 @@
 - [ ] Technology/category tags.
 - [ ] Cover image.
 - [ ] Public GitHub URL.
-- [ ] Demo application URL.
+- [x] Demo application URL: `https://clockcross-demo.tomi-seregi99.workers.dev`.
 - [ ] Video presentation.
 - [ ] Slide presentation.
 - [ ] Alpaca paper trading account ID.
