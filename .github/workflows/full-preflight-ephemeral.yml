@@ -1,0 +1,36 @@
+name: ClockCross full live preflight ephemeral
+
+on:
+  push:
+    branches:
+      - feat/clockcross-core
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+      ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKERS_TOKEN }}
+      CLOCKCROSS_ACCOUNT_ROLE: development
+      CLOCKCROSS_ALLOW_DEV_ORDER: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --extra dev
+      - name: Run end-to-end read-only preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          AUTH="$(printf '%s' "${CLOUDFLARE_API_TOKEN}:clockcross-ai-gateway:v1" | sha256sum | cut -d' ' -f1)"
+          echo "::add-mask::$AUTH"
+          export LLM_API_KEY="$AUTH"
+          export LLM_BASE_URL="https://clockcross-ai-gateway.tomi-seregi99.workers.dev/v1"
+          export LLM_MODEL="clockcross-cloudflare-llama-3.3-70b"
+          uv run clockcross preflight
