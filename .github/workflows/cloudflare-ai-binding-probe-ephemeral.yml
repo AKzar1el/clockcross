@@ -41,14 +41,16 @@ jobs:
                   ],
                   chat_template_kwargs: { enable_thinking: false },
                   temperature: 0,
-                  max_tokens: 16
+                  max_tokens: 32
                 });
-                const text = result?.response ?? result?.choices?.[0]?.message?.content ?? "";
+                const responseText = typeof result?.response === "string" ? result.response : "";
+                const choiceText = result?.choices?.[0]?.message?.content ?? "";
+                const text = responseText || choiceText;
                 return Response.json({
                   ok: Boolean(text),
-                  result_keys: result && typeof result === "object" ? Object.keys(result).sort() : [],
-                  response_kind: typeof result,
-                  text_present: Boolean(text)
+                  choice_text_present: Boolean(choiceText),
+                  response_text_present: Boolean(responseText),
+                  result_keys: result && typeof result === "object" ? Object.keys(result).sort() : []
                 });
               } catch (error) {
                 return Response.json({
@@ -105,9 +107,9 @@ jobs:
               payload = {}
           print(json.dumps({
               'ai_binding_ok': bool(payload.get('ok')),
+              'choice_text_present': bool(payload.get('choice_text_present')),
+              'response_text_present': bool(payload.get('response_text_present')),
               'result_keys': payload.get('result_keys'),
-              'response_kind': payload.get('response_kind'),
-              'text_present': bool(payload.get('text_present')),
               'error_name': payload.get('error_name'),
               'error_message': payload.get('error_message'),
           }, sort_keys=True))
