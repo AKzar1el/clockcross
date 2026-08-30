@@ -5,7 +5,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Literal
 
-from pydantic import AnyHttpUrl, field_validator, model_validator
+from pydantic import AnyHttpUrl, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PAPER_TRADING_URL = "https://paper-api.alpaca.markets"
@@ -29,6 +29,13 @@ class Settings(BaseSettings):
     clockcross_account_role: Literal["development", "competition"] = "development"
     clockcross_allow_dev_order: bool = False
     competition_starting_equity: Decimal = Decimal(100000)
+    competition_open_fill_seconds: int = Field(default=180, gt=0)
+    competition_close_fill_seconds: int = Field(default=120, gt=0)
+    competition_cancel_confirm_seconds: int = Field(default=30, gt=0)
+    competition_poll_seconds: int = Field(default=5, gt=0)
+    competition_latest_entry_time: time = time(10, 5)
+    competition_exit_time: time = time(10, 55)
+    competition_max_close_attempts: int = Field(default=2, ge=1)
     research_verdict_path: Path = Path("artifacts/research/verdict.json")
     live_signal_policy_path: Path = Path("docs/research/2026-08-29-live-signal-policy.json")
     mutation_spec_path: Path = Path("docs/superpowers/specs/2026-08-29-coin-options-mutation.md")
@@ -48,6 +55,16 @@ class Settings(BaseSettings):
         if str(value).rstrip("/") != PAPER_TRADING_URL:
             raise ValueError("ClockCross only permits Alpaca paper trading")
         return value
+
+    @model_validator(mode="after")
+    def validate_competition_policy(self) -> Settings:
+        if self.competition_exit_time <= self.decision_time:
+            raise ValueError("competition exit must be after decision time")
+        if self.competition_latest_entry_time < self.decision_time:
+            raise ValueError("competition latest entry must not precede decision time")
+        if self.competition_max_close_attempts != 2:
+            raise ValueError("competition close attempts are frozen at two")
+        return self
 
     @model_validator(mode="after")
     def require_alpaca_credentials(self) -> Settings:
