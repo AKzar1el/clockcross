@@ -30,6 +30,22 @@ jobs:
           fi
           echo "CLOCKCROSS_DEMO_URL=$url"
 
+          root_ready=false
+          for attempt in $(seq 1 30); do
+            http="$(curl -sS -o /tmp/index.html -w '%{http_code}' "$url/" || true)"
+            if [ "$http" = "200" ] \
+              && grep -Fq "Evidence, not promises." /tmp/index.html \
+              && grep -Fq "MUTATE" /tmp/index.html \
+              && grep -Fq 'class="hero-inner shell"' /tmp/index.html \
+              && grep -Fq 'og-image.png' /tmp/index.html; then
+              root_ready=true
+              break
+            fi
+            sleep 2
+          done
+          echo "CHECK /=${root_ready}"
+          [ "$root_ready" = "true" ]
+
           check() {
             local path="$1"
             local target="$2"
@@ -46,16 +62,11 @@ jobs:
             [ "$ok" = "true" ]
           }
 
-          check / /tmp/index.html
           check /favicon.svg /tmp/favicon.svg
           check /site.webmanifest /tmp/site.webmanifest
           check /og-image.png /tmp/og-image.png
           check /hackathon-cover.png /tmp/hackathon-cover.png
 
-          grep -Fq "Evidence, not promises." /tmp/index.html
-          grep -Fq "MUTATE" /tmp/index.html
-          grep -Fq 'class="hero-inner shell"' /tmp/index.html
-          grep -Fq 'og-image.png' /tmp/index.html
           grep -Fq 'ClockCross' /tmp/site.webmanifest
           python - <<'PY'
           from pathlib import Path
