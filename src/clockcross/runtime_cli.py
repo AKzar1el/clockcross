@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from collections.abc import Callable
 from dataclasses import asdict, is_dataclass
 from datetime import date
@@ -81,7 +82,14 @@ def execute_runtime_command(
             from clockcross.runtime import build_mleg_smoke_result
 
             smoke_builder = build_mleg_smoke_result
-        result = smoke_builder(settings_builder())
+        try:
+            result = smoke_builder(settings_builder())
+        except RuntimeError as exc:
+            print(
+                json.dumps({"ok": False, "error": str(exc)}, indent=2, sort_keys=True),
+                file=sys.stderr,
+            )
+            return 2
         print(json.dumps(_jsonable(result), indent=2, sort_keys=True, default=str))
         return 0 if bool(result.ok) else 2
     if args.command == "run-once":
