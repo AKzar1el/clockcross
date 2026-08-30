@@ -28,17 +28,20 @@ def contract(symbol: str, strike: str, delta: str, bid: str, ask: str):
 
 def chain(displayed_debit: Decimal = Decimal("2.50")) -> OptionChainSnapshot:
     # long ask - short bid = displayed_debit
+    long_ask = Decimal("5.20")
+    short_bid = long_ask - displayed_debit
+    short_ask = short_bid + Decimal("0.20")
     return OptionChainSnapshot(
         underlying="COIN",
         feed="indicative",
         contracts=[
-            contract("COIN260911C00300000", "300", "0.55", "5.00", "5.20"),
+            contract("COIN260911C00300000", "300", "0.55", "5.00", str(long_ask)),
             contract(
                 "COIN260911C00310000",
                 "310",
                 "0.35",
-                str(Decimal("5.20") - displayed_debit - Decimal("0.20")),
-                str(Decimal("5.20") - displayed_debit),
+                str(short_bid),
+                str(short_ask),
             ),
         ],
     )
