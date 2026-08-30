@@ -46,6 +46,7 @@ def execute_runtime_command(
     *,
     settings_factory: Callable[[], Any] | None = None,
     preflight_builder: Callable[[Any], Any] | None = None,
+    smoke_builder: Callable[[Any], Any] | None = None,
     runtime_builder: Callable[[Any], Any] | None = None,
     reconciliation_builder: Callable[[Any], Any] | None = None,
     app_builder: Callable[[Any], Any] | None = None,
@@ -75,6 +76,14 @@ def execute_runtime_command(
         }
         print(json.dumps(payload, indent=2, sort_keys=True, default=str))
         return 0 if report.ok else 2
+    if args.command == "smoke-mleg":
+        if smoke_builder is None:
+            from clockcross.runtime import build_mleg_smoke_result
+
+            smoke_builder = build_mleg_smoke_result
+        result = smoke_builder(settings_builder())
+        print(json.dumps(_jsonable(result), indent=2, sort_keys=True, default=str))
+        return 0 if bool(result.ok) else 2
     if args.command == "run-once":
         runtime = runtime_build(settings_builder())
         try:
