@@ -107,6 +107,27 @@ def test_smoke_mleg_uses_dedicated_builder_without_full_runtime(capsys):
     assert '"final_status": "canceled"' in output
 
 
+def test_smoke_mleg_safety_refusal_is_concise_and_nonzero(capsys):
+    from clockcross.runtime_cli import execute_runtime_command
+
+    def refuse(_):
+        raise RuntimeError("U.S. market is not open; refusing MLeg smoke")
+
+    args = parser().parse_args(["smoke-mleg"])
+    rc = execute_runtime_command(
+        args,
+        settings_factory=lambda: object(),
+        smoke_builder=refuse,
+    )
+
+    captured = capsys.readouterr()
+    assert rc == 2
+    assert captured.out == ""
+    assert '"ok": false' in captured.err
+    assert '"error": "U.S. market is not open; refusing MLeg smoke"' in captured.err
+    assert "Traceback" not in captured.err
+
+
 def test_run_once_builds_runtime_executes_and_closes(capsys):
     from clockcross.runtime_cli import execute_runtime_command
 
