@@ -17,13 +17,15 @@ def parser():
     return p
 
 
-def test_runtime_cli_registers_preflight_run_once_reconcile_and_serve():
+def test_runtime_cli_registers_preflight_smoke_run_once_reconcile_and_serve():
     p = parser()
     preflight = p.parse_args(["preflight"])
+    smoke = p.parse_args(["smoke-mleg"])
     run = p.parse_args(["run-once", "--date", "2026-08-31", "--mode", "dry-run"])
     rec = p.parse_args(["reconcile", "--date", "2026-08-31"])
     serve = p.parse_args(["serve", "--host", "127.0.0.1", "--port", "8000"])
     assert preflight.command == "preflight"
+    assert smoke.command == "smoke-mleg"
     assert run.date == date(2026, 8, 31) and run.mode == "dry-run"
     assert rec.date == date(2026, 8, 31)
     assert serve.host == "127.0.0.1" and serve.port == 8000
