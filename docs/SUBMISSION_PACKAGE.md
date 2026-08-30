@@ -1,5 +1,9 @@
 # ClockCross Submission Package
 
+<p align="center">
+  <img src="../deploy/cloudflare-demo/public/hackathon-cover.png" alt="ClockCross hackathon cover" width="1000">
+</p>
+
 Canonical copy-and-asset handoff for the Alpaca AI Trading Agents Hackathon submission.
 
 > Keep the project evidence-first. Do not replace `MUTATE` with a stronger claim, do not imply live-money trading, and do not claim final competition P&L before the dedicated competition account has actually run.
@@ -51,6 +55,10 @@ The public judge demo exposes the frozen research result, negative evidence, arc
 
 Use **`hackathon-cover.png`** — 1600×900 PNG, approximately 166 KB.
 
+<p align="center">
+  <img src="../deploy/cloudflare-demo/public/hackathon-cover.png" alt="ClockCross 16:9 hackathon cover" width="900">
+</p>
+
 - Repository source: `deploy/cloudflare-demo/public/hackathon-cover.png`
 - Public HTTPS asset: https://clockcross-demo.tomi-seregi99.workers.dev/hackathon-cover.png
 - SVG master: `deploy/cloudflare-demo/public/hackathon-cover.svg`
@@ -60,6 +68,10 @@ This is the primary submission cover and is also displayed at the top of the Git
 ### Website / link preview image
 
 Use **`og-image.png`** — 1200×630 PNG, approximately 132 KB.
+
+<p align="center">
+  <img src="../deploy/cloudflare-demo/public/og-image.png" alt="ClockCross social and Open Graph preview" width="800">
+</p>
 
 - Repository source: `deploy/cloudflare-demo/public/og-image.png`
 - Public HTTPS asset: https://clockcross-demo.tomi-seregi99.workers.dev/og-image.png
@@ -74,6 +86,10 @@ Recommended asset: `deploy/cloudflare-demo/public/og-image.png`.
 GitHub's repository social-preview control is a repository Settings UI upload rather than a tracked repository file. Upload this image manually under **Repository → Settings → Social preview → Edit → Upload an image** after the feature branch is merged. The current 1200×630 solid-background PNG is above GitHub's documented 640×320 minimum and below the 1 MB limit.
 
 ### Logo / application identity
+
+<p align="center">
+  <img src="../deploy/cloudflare-demo/public/logo-wordmark.svg" alt="ClockCross wordmark" width="420">
+</p>
 
 - Wordmark: `deploy/cloudflare-demo/public/logo-wordmark.svg`
 - Mark: `deploy/cloudflare-demo/public/logo-mark.svg`
