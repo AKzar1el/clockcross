@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from dataclasses import dataclass
 from datetime import date, datetime
+from pathlib import Path
 from typing import Any, Callable, Literal, Protocol
 
 from pydantic import BaseModel
@@ -79,7 +79,10 @@ class ApprovedMutationGate:
             raise RuntimeError("research verdict artifact is unreadable") from exc
         if not isinstance(payload, dict) or payload.get("verdict") != "MUTATE":
             raise RuntimeError("ClockCross paper mode requires the approved MUTATE verdict")
-        if payload.get("historical_stock_feed") != "sip" or payload.get("live_stock_feed") != "delayed_sip":
+        if (
+            payload.get("historical_stock_feed") != "sip"
+            or payload.get("live_stock_feed") != "delayed_sip"
+        ):
             raise RuntimeError("research/live feed metadata does not match the frozen SIP policy")
         expected_clock = {
             "feature_freeze_et": "09:25:00",
@@ -96,7 +99,10 @@ class ApprovedMutationGate:
         if not isinstance(coin, dict) or coin.get("verdict") != "MUTATE":
             raise RuntimeError("COIN evidence is not the approved MUTATE result")
         metadata = coin.get("metadata")
-        if not isinstance(metadata, dict) or metadata.get("config_hash") != self._expected_config_hash:
+        if (
+            not isinstance(metadata, dict)
+            or metadata.get("config_hash") != self._expected_config_hash
+        ):
             raise RuntimeError("research config hash does not match the frozen configuration")
 
 
@@ -115,11 +121,15 @@ class PortfolioGateway(Protocol):
 
 
 class RiskGateway(Protocol):
-    def evaluate(self, candidate: SpreadCandidate, portfolio: Any, *, now: datetime) -> RiskDecision: ...
+    def evaluate(
+        self, candidate: SpreadCandidate, portfolio: Any, *, now: datetime
+    ) -> RiskDecision: ...
 
 
 class ExecutionGateway(Protocol):
-    def submit(self, episode_id: str, candidate: SpreadCandidate, risk: RiskDecision) -> ExecutionResult: ...
+    def submit(
+        self, episode_id: str, candidate: SpreadCandidate, risk: RiskDecision
+    ) -> ExecutionResult: ...
     def reconcile(self, order: Any) -> ExecutionResult: ...
 
 
@@ -139,13 +149,13 @@ class Scheduler:
         self,
         *,
         ledger: Ledger,
-        readiness_gate: ReadinessGate,
-        signal_gateway: SignalGateway,
-        chain_gateway: ChainGateway,
+        readiness_gate: ReadinessGate | None,
+        signal_gateway: SignalGateway | None,
+        chain_gateway: ChainGateway | None,
         mcp_gateway: Any,
         adjudicator: Any,
         portfolio_gateway: PortfolioGateway,
-        risk_governor: RiskGateway,
+        risk_governor: RiskGateway | None,
         execution: ExecutionGateway,
         now: Callable[[], datetime],
     ) -> None:
@@ -178,16 +188,28 @@ class Scheduler:
         state = EpisodeState.ORDER_SUBMITTED
         if status in {"filled", "partially_filled"}:
             if status == "filled":
-                self._ledger.transition(episode_id, EpisodeState.ORDER_FILLED, event="reconciled_filled")
-                self._ledger.transition(episode_id, EpisodeState.MONITORING, event="begin_monitoring")
+                self._ledger.transition(
+                    episode_id, EpisodeState.ORDER_FILLED, event="reconciled_filled"
+                )
+                self._ledger.transition(
+                    episode_id, EpisodeState.MONITORING, event="begin_monitoring"
+                )
                 state = EpisodeState.MONITORING
         elif status in {"canceled", "cancelled", "expired"}:
-            self._ledger.transition(episode_id, EpisodeState.ORDER_CANCELLED, event="reconciled_cancelled")
-            self._ledger.transition(episode_id, EpisodeState.CLOSED, event="closed_after_cancel")
+            self._ledger.transition(
+                episode_id, EpisodeState.ORDER_CANCELLED, event="reconciled_cancelled"
+            )
+            self._ledger.transition(
+                episode_id, EpisodeState.CLOSED, event="closed_after_cancel"
+            )
             state = EpisodeState.CLOSED
         elif status in {"rejected", "suspended"}:
-            self._ledger.transition(episode_id, EpisodeState.ORDER_REJECTED, event="reconciled_rejected")
-            self._ledger.transition(episode_id, EpisodeState.CLOSED, event="closed_after_reject")
+            self._ledger.transition(
+                episode_id, EpisodeState.ORDER_REJECTED, event="reconciled_rejected"
+            )
+            self._ledger.transition(
+                episode_id, EpisodeState.CLOSED, event="closed_after_reject"
+            )
             state = EpisodeState.CLOSED
         return EpisodeSummary(episode_id=episode_id, state=state, order=result)
 
@@ -197,14 +219,29 @@ class Scheduler:
             raise RuntimeError("reconcile requires an existing ORDER_SUBMITTED COIN episode")
         return self._resume_submitted(episode.episode_id)
 
-    def run_session(self, session_date: date, *, mode: RunMode = "dry-run") -> EpisodeSummary:
+    def run_session(
+        self, session_date: date, *, mode: RunMode = "dry-run"
+    ) -> EpisodeSummary:
+        if (
+            self._readiness is None
+            or self._signal is None
+            or self._chains is None
+            or self._mcp is None
+            or self._ai is None
+            or self._risk is None
+        ):
+            raise RuntimeError("full runtime dependencies are required for run_session")
         self._readiness.require_ready(mode=mode)
         episode = self._ledger.create_episode(session_date, "COIN")
 
         if episode.state is EpisodeState.ORDER_SUBMITTED:
             return self._resume_submitted(episode.episode_id)
         if episode.state in {EpisodeState.ABSTAINED, EpisodeState.CLOSED}:
-            return EpisodeSummary(episode_id=episode.episode_id, state=episode.state, reason="terminal_episode")
+            return EpisodeSummary(
+                episode_id=episode.episode_id,
+                state=episode.state,
+                reason="terminal_episode",
+            )
         if episode.state is not EpisodeState.COLLECTING:
             raise RuntimeError(f"cannot safely resume episode from {episode.state.value}")
 
@@ -219,7 +256,9 @@ class Scheduler:
 
         features = self._signal.opening_confirmation(premarket)
         if features is None or features.opening_10m_return is None:
-            return self._abstain(episode.episode_id, "opening_confirmation_unavailable")
+            return self._abstain(
+                episode.episode_id, "opening_confirmation_unavailable"
+            )
         self._ledger.record_features(episode.episode_id, features)
         self._ledger.transition(
             episode.episode_id,
@@ -249,7 +288,11 @@ class Scheduler:
             payload=feasibility.model_dump(mode="json"),
         )
         if not feasibility.feasible:
-            reason = feasibility.reasons[0] if feasibility.reasons else "option_surface_unavailable"
+            reason = (
+                feasibility.reasons[0]
+                if feasibility.reasons
+                else "option_surface_unavailable"
+            )
             return self._abstain(episode.episode_id, reason)
 
         mcp_request = McpContextRequest(
@@ -265,7 +308,10 @@ class Scheduler:
             value="mcp_evidence",
             payload={
                 "complete": mcp_evidence.complete,
-                "items": [item.model_dump(mode="json", exclude={"content"}) for item in mcp_evidence.items],
+                "items": [
+                    item.model_dump(mode="json", exclude={"content"})
+                    for item in mcp_evidence.items
+                ],
             },
         )
         if not mcp_evidence.complete:
