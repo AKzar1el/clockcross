@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import date, datetime, time
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field
@@ -314,7 +314,7 @@ class CompetitionOrchestrator:
             seconds=self._policy.cancel_confirm_seconds
         )
         while self._current_time() <= deadline:
-            result = self._execution.reconcile(order)
+            result = cast(ExecutionResult, self._execution.reconcile(order))
             status = result.status.lower()
             if status in {"canceled", "cancelled"}:
                 return "canceled"
@@ -341,7 +341,7 @@ class CompetitionOrchestrator:
             now=current,
             attempt=attempt,
         )
-        return self._execution.submit_close(episode_id, instruction)
+        return cast(ExecutionResult, self._execution.submit_close(episode_id, instruction))
 
     def _manage_close(
         self,
