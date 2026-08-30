@@ -8,6 +8,7 @@ from typing import Any, Literal
 
 from clockcross.ledger import Ledger
 from clockcross.live_signal import LiveSignalPolicy
+from clockcross.preflight import options_level_3_status
 from clockcross.trading.risk import PortfolioState
 
 PAPER_TRADING_URL = "https://paper-api.alpaca.markets"
@@ -120,10 +121,11 @@ class AccountReadinessGate:
             raise RuntimeError("Alpaca paper account is not ACTIVE")
         if bool(account.get("trading_blocked", False)):
             raise RuntimeError("Alpaca paper account trading is blocked")
-        if int(account.get("options_trading_level", 0)) < 3:
-            raise RuntimeError("Alpaca paper account requires options Level 3 for spreads")
-        if int(config.get("max_options_trading_level", 0)) < 3:
-            raise RuntimeError("Alpaca maximum options trading level must permit Level 3")
+        level_ok, level_state = options_level_3_status(account, config)
+        if not level_ok:
+            raise RuntimeError(
+                f"Alpaca paper account requires options Level 3 for spreads ({level_state})"
+            )
         if self._role == "competition" and self._ledger.count_rows("episodes") == 0:
             equity = _decimal_field(account, "equity")
             if equity != self._starting_equity:
