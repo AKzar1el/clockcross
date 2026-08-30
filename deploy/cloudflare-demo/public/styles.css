@@ -238,7 +238,7 @@ h3 { letter-spacing: -.02em; }
 @media (max-width: 620px) {
   .shell { width: min(calc(100% - 28px), var(--max)); }
   .hero, .hero-inner { min-height: auto; }
-  .hero::before { inset-top: 72px; background-size: 40px 40px; }
+  .hero::before { top: 72px; background-size: 40px 40px; }
   .topbar { height: 72px; }
   .brand { font-size: 17px; }
   .brand-mark { width: 27px; height: 27px; }
