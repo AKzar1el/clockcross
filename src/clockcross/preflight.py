@@ -42,6 +42,44 @@ class AiProbe(Protocol):
     def decide(self, context: AgentContext) -> AgentDecision: ...
 
 
+def _level(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def options_level_3_status(
+    account_payload: dict[str, Any],
+    configuration: dict[str, Any],
+) -> tuple[bool, str]:
+    """Evaluate spread capability without inventing a zero for omitted config fields."""
+    approved_level = _level(account_payload.get("options_approved_level"))
+    trading_level = _level(account_payload.get("options_trading_level"))
+    max_raw = configuration.get("max_options_trading_level")
+    max_level = _level(max_raw)
+    max_reported = max_raw is not None
+
+    level_ok = (
+        approved_level is not None
+        and approved_level >= 3
+        and trading_level is not None
+        and trading_level >= 3
+        and (not max_reported or (max_level is not None and max_level >= 3))
+    )
+    approved_label = "missing" if approved_level is None else str(approved_level)
+    trading_label = "missing" if trading_level is None else str(trading_level)
+    max_label = "not_reported" if not max_reported else (
+        "invalid" if max_level is None else str(max_level)
+    )
+    detail = (
+        f"approved={approved_label}, trading={trading_label}, config_max={max_label}"
+    )
+    return level_ok, detail
+
+
 def _check_account(
     account: AccountProbe,
 ) -> tuple[PreflightCheck, PreflightCheck]:
@@ -75,13 +113,11 @@ def _check_account(
 
     try:
         config = account.configuration()
-        trading_level = int(payload.get("options_trading_level", 0))
-        max_level = int(config.get("max_options_trading_level", 0))
-        level_ok = trading_level >= 3 and max_level >= 3
+        level_ok, level_state = options_level_3_status(payload, config)
         level_detail = (
-            f"options Level 3 available (trading={trading_level}, max={max_level})"
+            f"options Level 3 available ({level_state})"
             if level_ok
-            else f"options Level 3 required (trading={trading_level}, max={max_level})"
+            else f"options Level 3 required ({level_state})"
         )
     except Exception:
         level_ok = False
