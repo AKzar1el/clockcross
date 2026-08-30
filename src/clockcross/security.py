@@ -7,7 +7,9 @@ from pathlib import Path
 
 _TEXT_SUFFIXES = {"", ".py", ".md", ".json", ".toml", ".yaml", ".yml", ".txt", ".html", ".env", ".example", ".ini", ".cfg", ".sh", ".ps1"}
 _SKIP_PARTS = {".git", ".venv", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache"}
-_ASSIGNMENT = re.compile(r"(?m)^\s*(ALPACA_API_KEY|ALPACA_SECRET_KEY|LLM_API_KEY)\s*=\s*([^\s#]*)")
+_ASSIGNMENT = re.compile(
+    r"(?m)^[ \t]*(ALPACA_API_KEY|ALPACA_SECRET_KEY|LLM_API_KEY)[ \t]*=[ \t]*([^#\r\n]*)$"
+)
 _OPENAI_STYLE = re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b")
 _PLACEHOLDERS = {"", "your-key-here", "your-secret-here", "your-api-key", "changeme"}
 
