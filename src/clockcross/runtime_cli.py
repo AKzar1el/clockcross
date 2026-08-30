@@ -4,7 +4,6 @@ import argparse
 import json
 import sys
 from collections.abc import Callable
-from dataclasses import asdict, is_dataclass
 from datetime import date
 from enum import Enum
 from typing import Any, cast
@@ -20,6 +19,8 @@ def register_runtime_subcommands(subparsers: Any) -> None:
     run_once.add_argument("--mode", choices=("dry-run", "paper"), default="dry-run")
     reconcile = subparsers.add_parser("reconcile")
     reconcile.add_argument("--date", required=True, type=date.fromisoformat)
+    competition = subparsers.add_parser("competition-session")
+    competition.add_argument("--date", required=True, type=date.fromisoformat)
     serve = subparsers.add_parser("serve")
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8000)
@@ -42,6 +43,9 @@ def _jsonable(value: Any) -> Any:
     return value
 
 
+from dataclasses import asdict, is_dataclass
+
+
 def execute_runtime_command(
     args: argparse.Namespace,
     *,
@@ -50,12 +54,14 @@ def execute_runtime_command(
     smoke_builder: Callable[[Any], Any] | None = None,
     runtime_builder: Callable[[Any], Any] | None = None,
     reconciliation_builder: Callable[[Any], Any] | None = None,
+    competition_builder: Callable[[Any], Any] | None = None,
     app_builder: Callable[[Any], Any] | None = None,
     uvicorn_runner: Callable[..., Any] | None = None,
 ) -> int | None:
     from clockcross.config import Settings
     from clockcross.preflight_runtime import build_preflight_report
     from clockcross.runtime import (
+        build_competition_runtime,
         build_evidence_app,
         build_reconciliation_runtime,
         build_runtime,
@@ -66,6 +72,9 @@ def execute_runtime_command(
     runtime_build: Callable[[Any], Any] = runtime_builder or build_runtime
     reconciliation_build: Callable[[Any], Any] = (
         reconciliation_builder or build_reconciliation_runtime
+    )
+    competition_build: Callable[[Any], Any] = (
+        competition_builder or build_competition_runtime
     )
     app_build: Callable[[Any], Any] = app_builder or build_evidence_app
 
@@ -105,6 +114,14 @@ def execute_runtime_command(
         try:
             summary = runtime.scheduler.reconcile_session(args.date)
             print(json.dumps(_jsonable(summary), indent=2, sort_keys=True, default=str))
+        finally:
+            runtime.close()
+        return 0
+    if args.command == "competition-session":
+        runtime = competition_build(settings_builder())
+        try:
+            result = runtime.orchestrator.run(args.date)
+            print(json.dumps(_jsonable(result), indent=2, sort_keys=True, default=str))
         finally:
             runtime.close()
         return 0
