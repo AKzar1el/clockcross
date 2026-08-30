@@ -81,6 +81,7 @@ class Adjudicator:
                     ],
                     "temperature": 0,
                     "max_tokens": 220,
+                    "chat_template_kwargs": {"enable_thinking": False},
                 },
                 timeout=self._timeout,
             )
