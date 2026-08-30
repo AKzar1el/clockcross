@@ -21,9 +21,11 @@ class Settings(BaseSettings):
     historical_stock_feed: Literal["iex", "sip"] = "sip"
     live_stock_feed: Literal["iex", "sip", "delayed_sip"] = "delayed_sip"
     option_feed: Literal["indicative", "opra"] = "indicative"
-    llm_base_url: AnyHttpUrl = AnyHttpUrl("https://api.featherless.ai/v1")
+    llm_base_url: AnyHttpUrl = AnyHttpUrl(
+        "https://clockcross-ai-gateway.tomi-seregi99.workers.dev/v1"
+    )
     llm_api_key: str | None = None
-    llm_model: str | None = None
+    llm_model: str | None = "clockcross-cloudflare-llama-3.3-70b"
     clockcross_account_role: Literal["development", "competition"] = "development"
     clockcross_allow_dev_order: bool = False
     competition_starting_equity: Decimal = Decimal(100000)
