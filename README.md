@@ -88,6 +88,14 @@ uv run clockcross research --start 2025-01-02 --end 2026-08-28 \
   --output-dir artifacts/research
 ```
 
+Read-only external preflight — safe to run while markets are closed and does **not** create a ledger episode or call an order endpoint:
+
+```bash
+uv run clockcross preflight
+```
+
+It checks the paper account state, Level-3 options permission, parseability of the current 7–21 DTE COIN chain, read-only Alpaca MCP `get_clock`, and the configured AI provider/schema. Exit code is `0` only when all five checks pass.
+
 One autonomous dry run:
 
 ```bash
@@ -130,7 +138,7 @@ uv run ruff check .
 uv run mypy src/clockcross
 ```
 
-The suite covers leakage boundaries, option-chain normalization, AI fail-closed behavior, risk caps, state-machine legality, SQLite idempotency, uncertain-order reconciliation, public API redaction, live-signal freezing, account-role safeguards, and repository secret scanning.
+The suite covers leakage boundaries, option-chain normalization, AI fail-closed behavior, risk caps, state-machine legality, SQLite idempotency, uncertain-order reconciliation, public API redaction, live-signal freezing, account-role safeguards, read-only external preflight, and repository secret scanning.
 
 ## Project documents
 
