@@ -34,18 +34,22 @@ jobs:
           export default {
             async fetch(_request, env) {
               try {
-                const result = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
+                const result = await env.AI.run("@cf/openai/gpt-oss-20b", {
                   messages: [
                     { role: "system", content: "Reply with exactly OK." },
                     { role: "user", content: "Health check" }
                   ],
                   temperature: 0,
-                  max_tokens: 8
+                  max_tokens: 16
                 });
                 const text = result?.response ?? result?.choices?.[0]?.message?.content ?? "";
                 return Response.json({ ok: Boolean(text), response_kind: typeof result, text_present: Boolean(text) });
               } catch (error) {
-                return Response.json({ ok: false, error_name: error?.name ?? "Error" }, { status: 500 });
+                return Response.json({
+                  ok: false,
+                  error_name: error?.name ?? "Error",
+                  error_message: String(error?.message ?? "").slice(0, 240)
+                }, { status: 500 });
               }
             }
           };
@@ -98,5 +102,6 @@ jobs:
               'response_kind': payload.get('response_kind'),
               'text_present': bool(payload.get('text_present')),
               'error_name': payload.get('error_name'),
+              'error_message': payload.get('error_message'),
           }, sort_keys=True))
           PY
