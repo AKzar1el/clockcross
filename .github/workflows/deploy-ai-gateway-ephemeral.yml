@@ -56,6 +56,8 @@ jobs:
               {"role":"user","content":"COIN residual +1.5%, BTC +2%, no company-specific news. Choose continuation, reversion, or abstain."}
             ]
           }
+          JSON
+
           auth_ok=false
           for attempt in $(seq 1 20); do
             http="$(curl -sS -o /tmp/decision.json -w '%{http_code}' \
