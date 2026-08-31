@@ -12,7 +12,9 @@ def test_competition_workflow_is_timezone_aware_event_bounded_and_secret_backed(
     text = workflow_text()
     assert 'timezone: "America/New_York"' in text
     assert 'cron: "57 9 31 8 *"' in text
-    assert 'cron: "57 9 1-4 9 *"' in text
+    assert 'cron: "55 9 1-4 9 *"' in text
+    assert 'cron: "0 10 1-4 9 *"' in text
+    assert 'cron: "57 9 1-4 9 *"' not in text
     assert "environment: competition" in text
     assert "github.ref == 'refs/heads/main'" in text
     assert "CLOCKCROSS_ACCOUNT_ROLE: competition" in text
