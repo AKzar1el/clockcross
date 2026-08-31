@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from typing import Any
 
 import pytest
 
@@ -10,7 +11,7 @@ from clockcross.alpaca.options import OptionChainSnapshot, OptionContractSnapsho
 from clockcross.domain import AgentAction, AgentDecision, AgentDriver
 from clockcross.ledger import Ledger
 from clockcross.preflight import run_read_only_preflight
-from clockcross.runtime import AccountReadinessGate
+from clockcross.runtime import AccountReadinessGate, AlpacaPaperAccountRestClient
 
 NOW = datetime(2026, 8, 30, 13, 0, tzinfo=timezone.utc)
 
@@ -22,10 +23,16 @@ class AccountProbe:
         approved_level: int = 3,
         trading_level: int = 3,
         max_level: int | None = 3,
+        equity: str = "100000",
+        positions: list[dict[str, Any]] | None = None,
+        orders: list[dict[str, Any]] | None = None,
     ) -> None:
         self.approved_level = approved_level
         self.trading_level = trading_level
         self.max_level = max_level
+        self.equity = equity
+        self._positions = list(positions or [])
+        self._orders = list(orders or [])
 
     def account(self):
         return {
@@ -33,6 +40,7 @@ class AccountProbe:
             "trading_blocked": False,
             "options_approved_level": self.approved_level,
             "options_trading_level": self.trading_level,
+            "equity": self.equity,
         }
 
     def configuration(self):
@@ -41,7 +49,10 @@ class AccountProbe:
         return {"max_options_trading_level": self.max_level}
 
     def positions(self):
-        return []
+        return list(self._positions)
+
+    def orders(self):
+        return list(self._orders)
 
 
 class ChainProbe:
@@ -101,6 +112,30 @@ class AiProbe:
             driver=AgentDriver.UNCLEAR,
             reason="preflight_schema_ok",
         )
+
+
+class ResponseProbe:
+    def __init__(self, payload: Any) -> None:
+        self.payload = payload
+
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> Any:
+        return self.payload
+
+
+class HttpProbe:
+    def __init__(self, payload: Any) -> None:
+        self.payload = payload
+        self.urls: list[str] = []
+
+    def get(self, url: str, *, headers: dict[str, str], timeout: float) -> ResponseProbe:
+        assert headers["APCA-API-KEY-ID"] == "key"
+        assert headers["APCA-API-SECRET-KEY"] == "secret"
+        assert timeout == 20.0
+        self.urls.append(url)
+        return ResponseProbe(self.payload)
 
 
 def run_preflight(account: AccountProbe):
@@ -181,6 +216,20 @@ def build_readiness_gate(tmp_path, account: AccountProbe) -> tuple[AccountReadin
     return gate, ledger
 
 
+def build_competition_readiness_gate(
+    tmp_path, account: AccountProbe
+) -> tuple[AccountReadinessGate, Ledger]:
+    ledger = Ledger(tmp_path / "competition-readiness.db")
+    gate = AccountReadinessGate(
+        account=account,
+        ledger=ledger,
+        account_role="competition",
+        allow_dev_order=False,
+        starting_equity=Decimal("100000"),
+    )
+    return gate, ledger
+
+
 def test_paper_readiness_accepts_level3_account_when_configuration_omits_max_level(tmp_path):
     gate, ledger = build_readiness_gate(tmp_path, AccountProbe(max_level=None))
     try:
@@ -199,3 +248,33 @@ def test_paper_readiness_rejects_account_not_approved_for_level3(tmp_path):
             gate.require_ready(mode="paper")
     finally:
         ledger.close()
+
+
+def test_fresh_competition_readiness_accepts_pristine_account(tmp_path):
+    gate, ledger = build_competition_readiness_gate(tmp_path, AccountProbe())
+    try:
+        gate.require_ready(mode="paper")
+    finally:
+        ledger.close()
+
+
+def test_fresh_competition_readiness_rejects_existing_order_history(tmp_path):
+    gate, ledger = build_competition_readiness_gate(
+        tmp_path,
+        AccountProbe(orders=[{"id": "prior-order", "status": "canceled"}]),
+    )
+    try:
+        with pytest.raises(RuntimeError, match="order history"):
+            gate.require_ready(mode="paper")
+    finally:
+        ledger.close()
+
+
+def test_account_client_orders_requests_latest_order_history():
+    http = HttpProbe([{"id": "prior-order", "status": "canceled"}])
+    client = AlpacaPaperAccountRestClient("key", "secret", http_client=http)
+
+    assert client.orders() == [{"id": "prior-order", "status": "canceled"}]
+    assert http.urls == [
+        "https://paper-api.alpaca.markets/v2/orders?status=all&limit=1&direction=desc"
+    ]
