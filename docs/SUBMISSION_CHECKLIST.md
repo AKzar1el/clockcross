@@ -11,11 +11,13 @@
 
 ## Required technology
 
-- [ ] Autonomous ClockCross episode demonstrated.
-- [ ] Alpaca Trading API used for paper MLeg execution.
+- [ ] Autonomous ClockCross competition episode demonstrated on the dedicated judging account.
+- [ ] Alpaca Trading API paper MLeg execution demonstrated against the open market.
 - [x] Alpaca MCP read-only context interaction demonstrated/logged.
 - [ ] Options trading demonstrated through the competition episode.
 - [x] Authenticated Cloudflare Workers AI gateway invoked with a schema-valid bounded decision.
+- [x] Competition lifecycle code implements bounded entry fill/cancel, persisted recovery, deterministic 10:55 ET exit, and exact-contract closing MLegs.
+- [x] Event-bounded GitHub Actions launcher is checked in with competition-only role, encrypted-secret references, concurrency, preflight-before-trade ordering, and durable state restoration.
 
 ## Evidence
 
@@ -34,7 +36,7 @@
 - [x] Public GitHub repository.
 - [x] MIT license.
 - [x] Complete static brand asset set prepared (mark, wordmark, favicons, app icons, social preview, manifest).
-- [x] Hackathon cover displayed at the top of the feature-branch README.
+- [x] Hackathon cover displayed at the top of the README.
 - [x] Canonical submission copy + image placement map prepared in `docs/SUBMISSION_PACKAGE.md`.
 - [ ] GitHub repository social preview uploaded in repository Settings after final merge.
 - [ ] `pytest -q` passes on final submission commit.
@@ -42,7 +44,7 @@
 - [ ] mypy passes on final submission commit.
 - [ ] Repository secret scan passes on final submission commit.
 - [x] No `.env`, raw API keys, account secrets, or raw market cache committed.
-- [ ] CI green on submission commit.
+- [ ] CI green on final submission commit.
 - [x] AI gateway health and authenticated schema smoke test passed.
 - [ ] Evidence-console deployment health/readiness returns success.
 
@@ -55,7 +57,7 @@
 - [x] Public HTTPS cover URL available: `https://clockcross-demo.tomi-seregi99.workers.dev/hackathon-cover.png`.
 - [ ] Project title / descriptions / tags entered on Lablab.
 - [ ] Cover image uploaded to Lablab.
-- [ ] Public GitHub URL entered after the implementation branch is merged to `main`.
+- [ ] Public GitHub URL entered after the competition hardening branch is merged to `main`.
 - [x] Demo application URL prepared: `https://clockcross-demo.tomi-seregi99.workers.dev`.
 - [ ] Demo application URL entered on Lablab.
 - [ ] Video presentation.
@@ -77,10 +79,16 @@ Tag lablab.ai and Alpaca as required by the event page.
 
 ## Final operational gate
 
+Software readiness and external-market proof are deliberately separate. Do not mark an external item complete because its code path is tested.
+
 - [x] Development-account external preflight passed 5/5 on 2026-08-30.
-- [ ] Development-account MLeg smoke/cancel test completed while U.S. options are open.
-- [ ] Fresh competition account passes pristine startup gate without smoke trades.
-- [ ] No unresolved `ORDER_SUBMITTED`/indeterminate episode.
+- [ ] Development-account MLeg smoke/cancel test completed while U.S. options are open with `final_status: canceled`.
+- [ ] GitHub `competition` environment exists with the fresh judging-account Alpaca key/secret and ClockCross gateway bearer.
+- [ ] Fresh competition account passes pristine startup gate without smoke/manual trades.
+- [ ] First scheduled/manual `competition-session` completes with a valid trade lifecycle or auditable abstention.
+- [ ] No unresolved opening/closing order or indeterminate episode.
 - [ ] No undocumented manual intervention.
-- [ ] Final-day account state captured before deadline.
-- [ ] Submission completed before **2026-09-04 17:00 CEST**.
+- [ ] Final-day account state and P&L/equity captured before deadline.
+- [ ] Video presentation completed.
+- [ ] Slide presentation completed.
+- [ ] Final Lablab submission completed before **2026-09-04 17:00 CEST**.
