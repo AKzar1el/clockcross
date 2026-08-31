@@ -345,14 +345,16 @@ class ExecutionService:
                 base_payload=entry_payload,
             )
 
-        if local is None:
-            local = self._ledger.record_order(
-                episode_id,
-                client_order_id=client_order_id,
-                alpaca_order_id=None,
-                status="pending_submission",
-                payload=entry_payload,
-            )
+        if local is not None:
+            raise IndeterminateOrderError(client_order_id)
+
+        local = self._ledger.record_order(
+            episode_id,
+            client_order_id=client_order_id,
+            alpaca_order_id=None,
+            status="pending_submission",
+            payload=entry_payload,
+        )
 
         try:
             submitted = self._trading.submit_vertical(candidate, client_order_id=client_order_id)
@@ -417,14 +419,16 @@ class ExecutionService:
                 base_payload=close_payload,
             )
 
-        if local is None:
-            local = self._ledger.record_order(
-                episode_id,
-                client_order_id=client_order_id,
-                alpaca_order_id=None,
-                status="pending_submission",
-                payload=close_payload,
-            )
+        if local is not None:
+            raise IndeterminateOrderError(client_order_id)
+
+        local = self._ledger.record_order(
+            episode_id,
+            client_order_id=client_order_id,
+            alpaca_order_id=None,
+            status="pending_submission",
+            payload=close_payload,
+        )
 
         try:
             submitted = self._trading.submit_close_vertical(
