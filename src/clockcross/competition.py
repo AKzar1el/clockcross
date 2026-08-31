@@ -114,6 +114,13 @@ class CompetitionOrchestrator:
         )
 
     def _prepare_new_session(self, session_date: date) -> CompetitionSessionResult | None:
+        existing = self._ledger.get_episode_for_session(session_date, "COIN")
+        if existing is not None and existing.state in {
+            EpisodeState.ABSTAINED,
+            EpisodeState.CLOSED,
+        }:
+            return self._result(session_date, existing.state, reason="terminal_episode")
+
         entry = datetime.combine(session_date, self._policy.entry_time_et, tzinfo=ET)
         latest = datetime.combine(session_date, self._policy.latest_entry_time_et, tzinfo=ET)
         self._wait_until(entry)
