@@ -1,0 +1,108 @@
+name: Secure Competition Promotion
+
+on:
+  push:
+    paths:
+      - "ops/promote-trigger"
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: development
+    env:
+      ALPACA_API_KEY: ${{ secrets.ALPACA_DEVELOPMENT_API_KEY }}
+      ALPACA_SECRET_KEY: ${{ secrets.ALPACA_DEVELOPMENT_SECRET_KEY }}
+      GATEWAY_BEARER: ${{ secrets.CLOCKCROSS_AI_GATEWAY_BEARER }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate and publish ephemeral transport key
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          umask 077
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out /tmp/promote-private.pem >/dev/null 2>&1
+          openssl pkey -in /tmp/promote-private.pem -pubout -out /tmp/promote-public.pem >/dev/null 2>&1
+          content=$(base64 -w0 /tmp/promote-public.pem)
+          current_sha=$(gh api "repos/${GITHUB_REPOSITORY}/contents/ops/promote-public.pem?ref=main" --jq '.sha' 2>/dev/null || true)
+          if [ -n "$current_sha" ]; then
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/ops/promote-public.pem" -f message='ops: rotate ephemeral promotion key' -f content="$content" -f branch=main -f sha="$current_sha" >/dev/null
+          else
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/ops/promote-public.pem" -f message='ops: publish ephemeral promotion key' -f content="$content" -f branch=main >/dev/null
+          fi
+          echo "Ephemeral promotion public key published"
+
+      - name: Verify pristine account and promote secrets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cleanup() { rm -f /tmp/promote-private.pem /tmp/promote-public.pem /tmp/payload-content.json /tmp/payload.b64 /tmp/payload.enc /tmp/payload.json; }
+          trap cleanup EXIT
+
+          found=0
+          for _ in $(seq 1 180); do
+            if gh api "repos/${GITHUB_REPOSITORY}/contents/ops/promote-payload.b64?ref=main" > /tmp/payload-content.json 2>/dev/null; then found=1; break; fi
+            sleep 5
+          done
+          if [ "$found" -ne 1 ]; then echo "Encrypted promotion payload did not arrive" >&2; exit 2; fi
+          jq -r '.content' /tmp/payload-content.json | tr -d '\n' | base64 -d > /tmp/payload.b64
+          base64 -d /tmp/payload.b64 > /tmp/payload.enc
+          openssl pkeyutl -decrypt -inkey /tmp/promote-private.pem -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha256 -pkeyopt rsa_mgf1_md:sha256 -in /tmp/payload.enc -out /tmp/payload.json
+          PAT=$(jq -er '.github_pat' /tmp/payload.json)
+          echo "::add-mask::$PAT"
+
+          account=$(curl -fsS -H "APCA-API-KEY-ID: $ALPACA_API_KEY" -H "APCA-API-SECRET-KEY: $ALPACA_SECRET_KEY" https://paper-api.alpaca.markets/v2/account)
+          positions=$(curl -fsS -H "APCA-API-KEY-ID: $ALPACA_API_KEY" -H "APCA-API-SECRET-KEY: $ALPACA_SECRET_KEY" https://paper-api.alpaca.markets/v2/positions)
+          orders=$(curl -fsS -H "APCA-API-KEY-ID: $ALPACA_API_KEY" -H "APCA-API-SECRET-KEY: $ALPACA_SECRET_KEY" "https://paper-api.alpaca.markets/v2/orders?status=all&limit=500&direction=desc")
+          created_at=$(jq -er '.created_at' <<<"$account")
+          status=$(jq -er '.status' <<<"$account")
+          equity=$(jq -er '.equity' <<<"$account")
+          options_level=$(jq -er '.options_trading_level // 0' <<<"$account")
+          approved_level=$(jq -er '.options_approved_level // 0' <<<"$account")
+          positions_count=$(jq 'length' <<<"$positions")
+          orders_count=$(jq 'length' <<<"$orders")
+          trading_blocked=$(jq -r 'if has("trading_blocked") then .trading_blocked else true end' <<<"$account")
+          account_blocked=$(jq -r 'if has("account_blocked") then .account_blocked else true end' <<<"$account")
+
+          python3 - "$created_at" "$status" "$equity" "$options_level" "$approved_level" "$positions_count" "$orders_count" "$trading_blocked" "$account_blocked" <<'PY'
+          import sys
+          from datetime import datetime, timezone
+          from decimal import Decimal
+          created_at, status, equity, options_level, approved_level, positions_count, orders_count, trading_blocked, account_blocked = sys.argv[1:]
+          created = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+          kickoff = datetime(2026, 8, 28, 15, 0, tzinfo=timezone.utc)
+          assert created >= kickoff, 'account predates hackathon kickoff'
+          assert status == 'ACTIVE', 'account not ACTIVE'
+          assert Decimal(equity) == Decimal('100000'), 'account equity is not pristine $100,000'
+          assert int(options_level) >= 3 and int(approved_level) >= 3, 'options Level 3 unavailable'
+          assert int(positions_count) == 0, 'account has positions'
+          assert int(orders_count) == 0, 'account has prior orders'
+          assert trading_blocked == 'false' and account_blocked == 'false', 'account blocked'
+          PY
+
+          echo "Pristine competition gate passed: post-kickoff account, ACTIVE, equity=$equity, options=$options_level/$approved_level, positions=$positions_count, orders=$orders_count"
+          account_id=$(jq -er '.id' <<<"$account")
+          echo "::add-mask::$account_id"
+
+          export GH_TOKEN="$PAT"
+          gh api --method PUT "repos/${GITHUB_REPOSITORY}/environments/competition" --input - <<< '{}' >/dev/null
+          printf '%s' "$ALPACA_API_KEY" | gh secret set ALPACA_COMPETITION_API_KEY --env competition --repo "$GITHUB_REPOSITORY"
+          printf '%s' "$ALPACA_SECRET_KEY" | gh secret set ALPACA_COMPETITION_SECRET_KEY --env competition --repo "$GITHUB_REPOSITORY"
+          printf '%s' "$GATEWAY_BEARER" | gh secret set CLOCKCROSS_AI_GATEWAY_BEARER --env competition --repo "$GITHUB_REPOSITORY"
+          printf '%s' "$account_id" | gh secret set ALPACA_COMPETITION_ACCOUNT_ID --env competition --repo "$GITHUB_REPOSITORY"
+
+          gh secret delete ALPACA_DEVELOPMENT_API_KEY --env development --repo "$GITHUB_REPOSITORY" || true
+          gh secret delete ALPACA_DEVELOPMENT_SECRET_KEY --env development --repo "$GITHUB_REPOSITORY" || true
+
+          echo "Competition environment secret names:"
+          gh secret list --env competition --repo "$GITHUB_REPOSITORY" | cut -f1 | sort
+          echo "COMPETITION_PROMOTION_READY=true"
