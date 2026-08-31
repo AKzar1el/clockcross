@@ -54,7 +54,7 @@ jobs:
         id: session
         shell: bash
         env:
-          REQUESTED_SESSION: ${{ inputs.session_date }}
+          REQUESTED_SESSION: ${{ github.event.inputs.session_date || '' }}
         run: |
           if [ -n "${REQUESTED_SESSION:-}" ]; then
             SESSION_DATE="$REQUESTED_SESSION"
@@ -76,8 +76,16 @@ jobs:
         shell: bash
         run: |
           mkdir -p data artifacts/competition
-          PREV_RUN_ID="$(gh run list --workflow competition-runtime.yml --branch "${GITHUB_REF_NAME}" --limit 20 --json databaseId,status --jq '[.[] | select(.status == "completed")][0].databaseId // empty')"
-          if [ -n "$PREV_RUN_ID" ]; then
+          mapfile -t PREV_RUN_IDS < <(
+            gh run list \
+              --workflow competition-runtime.yml \
+              --branch "${GITHUB_REF_NAME}" \
+              --limit 20 \
+              --json databaseId,status \
+              --jq '.[] | select(.status == "completed") | .databaseId'
+          )
+
+          for PREV_RUN_ID in "${PREV_RUN_IDS[@]}"; do
             rm -rf .clockcross-state
             if gh run download "$PREV_RUN_ID" -n clockcross-state -D .clockcross-state; then
               if [ -f .clockcross-state/clockcross.sqlite3 ]; then
@@ -88,8 +96,9 @@ jobs:
                   cp ".clockcross-state/clockcross.sqlite3${suffix}" "data/clockcross.sqlite3${suffix}"
                 fi
               done
+              break
             fi
-          fi
+          done
 
       - name: Read-only external preflight
         run: uv run clockcross preflight
