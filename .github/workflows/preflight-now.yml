@@ -13,14 +13,14 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: development
+    environment: competition
     env:
-      ALPACA_API_KEY: ${{ secrets.ALPACA_DEVELOPMENT_API_KEY }}
-      ALPACA_SECRET_KEY: ${{ secrets.ALPACA_DEVELOPMENT_SECRET_KEY }}
+      ALPACA_API_KEY: ${{ secrets.ALPACA_COMPETITION_API_KEY }}
+      ALPACA_SECRET_KEY: ${{ secrets.ALPACA_COMPETITION_SECRET_KEY }}
       LLM_API_KEY: ${{ secrets.CLOCKCROSS_AI_GATEWAY_BEARER }}
       LLM_BASE_URL: https://clockcross-ai-gateway.tomi-seregi99.workers.dev/v1
       LLM_MODEL: clockcross-cloudflare-llama-3.3-70b
-      CLOCKCROSS_ACCOUNT_ROLE: development
+      CLOCKCROSS_ACCOUNT_ROLE: competition
       CLOCKCROSS_ALLOW_DEV_ORDER: "false"
     steps:
       - uses: actions/checkout@v4
