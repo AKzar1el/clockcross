@@ -147,6 +147,15 @@ class Ledger:
         row = self._conn.execute("SELECT * FROM episodes WHERE episode_id = ?", (episode_id,)).fetchone()
         return None if row is None else self._episode(row)
 
+    def get_episode_for_session(
+        self, session_date: date, underlying: str
+    ) -> EpisodeRecord | None:
+        row = self._conn.execute(
+            "SELECT * FROM episodes WHERE session_date = ? AND underlying = ?",
+            (session_date.isoformat(), underlying),
+        ).fetchone()
+        return None if row is None else self._episode(row)
+
     def get_open_episode(self, session_date: date, underlying: str) -> EpisodeRecord | None:
         row = self._conn.execute(
             "SELECT * FROM episodes WHERE session_date = ? AND underlying = ? AND state NOT IN (?, ?)",
