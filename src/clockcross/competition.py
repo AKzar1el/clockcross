@@ -30,6 +30,7 @@ class CompetitionPolicy(BaseModel):
     open_fill_seconds: int = Field(default=180, gt=0)
     poll_seconds: int = Field(default=5, gt=0)
     cancel_confirm_seconds: int = Field(default=30, gt=0)
+    entry_time_et: time = time(9, 55)
     exit_time_et: time = time(10, 55)
     close_fill_seconds: int = Field(default=120, gt=0)
     max_close_attempts: int = Field(default=2, ge=1, le=2)
@@ -112,6 +113,33 @@ class CompetitionOrchestrator:
             close_attempts=close_attempts,
         )
 
+    def _prepare_new_session(self, session_date: date) -> CompetitionSessionResult | None:
+        existing = self._ledger.get_episode_for_session(session_date, "COIN")
+        if existing is not None and existing.state in {
+            EpisodeState.ABSTAINED,
+            EpisodeState.CLOSED,
+        }:
+            return self._result(session_date, existing.state, reason="terminal_episode")
+
+        entry = datetime.combine(session_date, self._policy.entry_time_et, tzinfo=ET)
+        latest = datetime.combine(session_date, self._policy.latest_entry_time_et, tzinfo=ET)
+        self._wait_until(entry)
+        if self._current_time() <= latest:
+            return None
+
+        episode = self._ledger.create_episode(session_date, "COIN")
+        abstained = self._ledger.transition(
+            episode.episode_id,
+            EpisodeState.ABSTAINED,
+            event="competition_entry_window_closed",
+            payload={"latest_entry_time_et": self._policy.latest_entry_time_et.isoformat()},
+        )
+        return self._result(
+            session_date,
+            abstained.state,
+            reason="competition_entry_window_closed",
+        )
+
     def run(self, session_date: date) -> CompetitionSessionResult:
         unresolved = self._ledger.get_unresolved_episode("COIN")
         if unresolved is not None and unresolved.session_date != session_date:
@@ -120,6 +148,9 @@ class CompetitionOrchestrator:
             )
 
         if unresolved is None:
+            timing_result = self._prepare_new_session(session_date)
+            if timing_result is not None:
+                return timing_result
             summary = self._scheduler.run_session(session_date, mode="paper")
             if summary.state in {EpisodeState.ABSTAINED, EpisodeState.CLOSED}:
                 return self._result(

@@ -18,7 +18,7 @@ RunMode = Literal["dry-run", "paper"]
 
 
 class AlpacaPaperAccountRestClient:
-    """Read-only account/configuration/position client pinned to Alpaca paper."""
+    """Read-only account/configuration/order/position client pinned to Alpaca paper."""
 
     def __init__(
         self,
@@ -59,6 +59,14 @@ class AlpacaPaperAccountRestClient:
         payload = self._get("/v2/account/configurations")
         if not isinstance(payload, dict):
             raise ValueError("unexpected Alpaca account configuration response")
+        return payload
+
+    def orders(self) -> list[dict[str, Any]]:
+        payload = self._get("/v2/orders?status=all&limit=1&direction=desc")
+        if not isinstance(payload, list) or not all(
+            isinstance(item, dict) for item in payload
+        ):
+            raise ValueError("unexpected Alpaca orders response")
         return payload
 
     def positions(self) -> list[dict[str, Any]]:
@@ -175,6 +183,8 @@ class AccountReadinessGate:
                 )
             if positions:
                 raise RuntimeError("fresh competition account must have no open positions")
+            if self._account.orders():
+                raise RuntimeError("fresh competition account must have no order history")
 
 
 class AlpacaOptionChainGateway:

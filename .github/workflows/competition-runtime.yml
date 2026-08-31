@@ -4,9 +4,11 @@ on:
   schedule:
     - cron: "57 9 31 8 *"
       timezone: "America/New_York"
-    - cron: "55 9 1-4 9 *"
+    # Warm the runner before the frozen 09:55 decision boundary, then retry at 09:55.
+    # Both Sep 1-4 triggers avoid GitHub Actions' documented top-of-hour load peak.
+    - cron: "50 9 1-4 9 *"
       timezone: "America/New_York"
-    - cron: "0 10 1-4 9 *"
+    - cron: "55 9 1-4 9 *"
       timezone: "America/New_York"
   workflow_dispatch:
     inputs:
@@ -73,6 +75,17 @@ jobs:
           esac
 
           echo "session_date=$SESSION_DATE" >> "$GITHUB_OUTPUT"
+
+      - name: Record trigger context
+        shell: bash
+        run: |
+          {
+            echo "### Competition runtime trigger"
+            echo "- Event: ${{ github.event_name }}"
+            echo "- Schedule: ${{ github.event.schedule || 'manual' }}"
+            echo "- Session: ${{ steps.session.outputs.session_date }}"
+            echo "- Run ID: ${{ github.run_id }}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Restore durable ClockCross state
         shell: bash

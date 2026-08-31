@@ -111,6 +111,25 @@ class FakeScheduler:
         )
 
 
+class AbstainingScheduler(FakeScheduler):
+    def __init__(self, ledger: Ledger, clock: FakeClock) -> None:
+        super().__init__(ledger)
+        self.clock = clock
+        self.invoked_at: datetime | None = None
+
+    def run_session(self, day: date, *, mode: str) -> EpisodeSummary:
+        self.run_session_calls += 1
+        assert mode == "paper"
+        self.invoked_at = self.clock.current
+        episode = self.ledger.create_episode(day, "COIN")
+        self.ledger.transition(episode.episode_id, EpisodeState.ABSTAINED, event="test_abstain")
+        return EpisodeSummary(
+            episode_id=episode.episode_id,
+            state=EpisodeState.ABSTAINED,
+            reason="test_abstain",
+        )
+
+
 class FakeTrading:
     def __init__(self, scheduler: FakeScheduler, *, prove_cancel: bool = True) -> None:
         self.scheduler = scheduler
@@ -227,6 +246,41 @@ def test_prior_unresolved_coin_episode_blocks_new_session(tmp_path):
     orchestrator = build_orchestrator(ledger, clock)
     with pytest.raises(RuntimeError, match="unresolved COIN lifecycle"):
         orchestrator.run(date(2026, 9, 1))
+    ledger.close()
+
+
+def test_new_session_started_before_0955_waits_until_decision_boundary(tmp_path):
+    ledger = Ledger(tmp_path / "ledger.sqlite3")
+    clock = FakeClock(datetime(2026, 8, 31, 9, 50, tzinfo=ET))
+    scheduler = AbstainingScheduler(ledger, clock)
+    orchestrator = build_orchestrator(
+        ledger,
+        clock,
+        scheduler=scheduler,
+        policy=CompetitionPolicy(poll_seconds=60),
+    )
+
+    result = orchestrator.run(SESSION)
+
+    assert result.state is EpisodeState.ABSTAINED
+    assert scheduler.run_session_calls == 1
+    assert scheduler.invoked_at == datetime(2026, 8, 31, 9, 55, tzinfo=ET)
+    assert sum(clock.sleeps) == 300
+    ledger.close()
+
+
+def test_new_session_after_1005_abstains_without_running_scheduler(tmp_path):
+    ledger = Ledger(tmp_path / "ledger.sqlite3")
+    clock = FakeClock(datetime(2026, 8, 31, 10, 5, 1, tzinfo=ET))
+    scheduler = AbstainingScheduler(ledger, clock)
+    orchestrator = build_orchestrator(ledger, clock, scheduler=scheduler)
+
+    result = orchestrator.run(SESSION)
+
+    assert result.state is EpisodeState.ABSTAINED
+    assert result.reason == "competition_entry_window_closed"
+    assert scheduler.run_session_calls == 0
+    assert ledger.count_rows("episodes") == 1
     ledger.close()
 
 
