@@ -92,5 +92,42 @@ jobs:
       - name: Read-only external preflight
         run: uv run clockcross preflight
 
+      - name: Print frozen Aug 31 signal evidence
+        shell: bash
+        run: |
+          uv run python - <<'PY'
+          import json
+          from datetime import date
+
+          from clockcross.config import Settings
+          from clockcross.runtime import build_runtime
+
+          runtime = build_runtime(Settings())
+          try:
+              signal = runtime.scheduler._signal
+              features = signal.collect_premarket(date(2026, 8, 31))
+              if features is None:
+                  print(json.dumps({"features": None, "reason": "premarket_features_unavailable"}))
+              else:
+                  confirmed = signal.opening_confirmation(features)
+                  if confirmed is None:
+                      print(json.dumps({"features": features.model_dump(mode="json"), "reason": "opening_confirmation_unavailable"}, sort_keys=True))
+                  else:
+                      evidence = signal.evaluate(confirmed)
+                      print(json.dumps({
+                          "btc_return": confirmed.btc_return,
+                          "equity_premarket_return": confirmed.equity_premarket_return,
+                          "beta": confirmed.beta,
+                          "expected_return": confirmed.expected_return,
+                          "residual": confirmed.residual,
+                          "opening_10m_return": confirmed.opening_10m_return,
+                          "frozen_abs_residual_threshold": 0.01,
+                          "signal_approved": evidence.approved,
+                          "signal_reason": evidence.reason,
+                      }, sort_keys=True))
+          finally:
+              runtime.close()
+          PY
+
       - name: Re-evaluate today's frozen signal without order submission
         run: uv run clockcross run-once --date 2026-08-31 --mode dry-run
