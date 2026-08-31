@@ -43,6 +43,15 @@ def seed_closed_episode(ledger: Ledger) -> str:
     return episode.episode_id
 
 
+def test_session_episode_lookup_is_read_only(tmp_path):
+    ledger = Ledger(tmp_path / "ledger.sqlite3")
+    try:
+        assert ledger.get_episode_for_session(SESSION, "COIN") is None
+        assert ledger.count_rows("episodes") == 0
+    finally:
+        ledger.close()
+
+
 def test_delayed_backup_after_terminal_episode_returns_existing_terminal_state(tmp_path):
     ledger = Ledger(tmp_path / "ledger.sqlite3")
     seed_closed_episode(ledger)
