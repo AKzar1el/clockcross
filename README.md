@@ -6,7 +6,7 @@
 
 **An autonomous AI options agent that measures crypto-to-equity repricing gaps, validates them chronologically, and expresses only evidence-backed COIN signals through defined-risk Alpaca spreads.**
 
-ClockCross was built for the **Alpaca AI Trading Agents Hackathon**. It uses Alpaca's paper-trading stack, Alpaca MCP, and an authenticated Cloudflare Workers AI gateway backed by a schema-bounded Llama 3.3 70B model while keeping trade construction, risk, and order idempotency deterministic.
+ClockCross was built for the **Alpaca AI Trading Agents Hackathon**. It uses Alpaca's paper-trading stack, Alpaca MCP, and an authenticated Cloudflare Workers AI gateway backed by a schema-bounded Llama 3.3 70B model while keeping trade construction, risk, order lifecycle, and idempotency deterministic.
 
 > Paper trading is a simulation. Nothing in this repository is investment advice, and the research results do not imply future performance.
 
@@ -31,8 +31,11 @@ BTC 24/7 data
   -> bounded AI: continuation | reversion | abstain
   -> deterministic vertical-spread constructor
   -> deterministic risk governor
-  -> idempotent Alpaca paper MLeg execution
-  -> durable SQLite decision ledger
+  -> idempotent Alpaca paper MLeg entry
+  -> bounded entry reconciliation/cancellation
+  -> deterministic 10:55 ET research-horizon exit
+  -> idempotent exact-contract MLeg close
+  -> durable SQLite lifecycle ledger
 ```
 
 ## What the research actually found
@@ -59,7 +62,7 @@ The model sees a schema-bounded context only after deterministic evidence and op
 - `reversion`
 - `abstain`
 
-It cannot choose a new symbol, invent a contract, change DTE, change position sizing, bypass stale quotes, override buying power, exceed portfolio risk, or submit an order directly. Malformed output, transport errors, company-specific news, or ambiguous context fail closed to `abstain`.
+It cannot choose a new symbol, invent a contract, change DTE, change position sizing, bypass stale quotes, override buying power, exceed portfolio risk, choose an exit, or submit an order directly. Malformed output, transport errors, company-specific news, or ambiguous context fail closed to `abstain`.
 
 The AI endpoint is a small authenticated Cloudflare Worker at `clockcross-ai-gateway.tomi-seregi99.workers.dev`. The Worker fixes the provider model to Cloudflare's Llama 3.3 70B fast variant, requests the exact ClockCross JSON schema at the provider boundary, validates it again, and returns the OpenAI-compatible response shape consumed by the Python adjudicator. The adjudicator then performs its own Pydantic validation, giving the decision path two independent schema checks.
 
@@ -90,7 +93,11 @@ The MVP permits only:
 - no uncovered short options;
 - one active COIN structure at a time.
 
-Default risk caps are **1% of starting equity per position** and **5% aggregate defined loss**. Every irreversible order has a deterministic client order ID. A timeout triggers reconciliation by that ID; if the outcome cannot be proven, the episode becomes **indeterminate** and ClockCross does not blindly re-submit.
+Live option eligibility is based only on fields the Alpaca snapshot path actually supplies and records: fresh positive/non-crossed bid/ask quotes, relative spread quality, available delta, valid vertical economics, buying power, and deterministic max-loss gates. ClockCross does not claim to enforce open-interest or volume thresholds that are absent from the normalized live snapshot.
+
+Default risk caps are **1% of starting equity per position** and **5% aggregate defined loss**. Competition entries must begin inside the frozen 09:55–10:05 ET entry window. An accepted opening MLeg gets a fixed 180-second fill window; an unfilled order is canceled only after cancellation can be proven. A filled spread is managed to the **10:55 ET** exit boundary because the frozen research target is the 60-minute return from the 09:55 decision. The close reuses the exact opening contracts with `sell_to_close` / `buy_to_close`, deterministic client IDs, and at most one deterministic replacement attempt.
+
+Every irreversible order has a deterministic client order ID. A timeout triggers reconciliation by that ID; if the outcome cannot be proven, ClockCross does not blindly re-submit. An unresolved prior COIN lifecycle blocks a new competition episode.
 
 ## Run locally
 
@@ -138,6 +145,14 @@ CLOCKCROSS_ACCOUNT_ROLE=competition
 CLOCKCROSS_ALLOW_DEV_ORDER=false
 ```
 
+The complete competition lifecycle is:
+
+```bash
+uv run clockcross competition-session --date 2026-08-31
+```
+
+The checked-in `.github/workflows/competition-runtime.yml` is the event-bounded launcher once it is on the default branch and the `competition` GitHub environment contains the three required encrypted secrets. It runs at 09:57 America/New_York on Aug 31 and Sep 1–4, restores the prior SQLite state artifact, performs read-only preflight first, and then executes `competition-session`.
+
 Crash recovery is intentionally separate and cannot compute or submit a new signal:
 
 ```bash
@@ -160,7 +175,7 @@ uv run ruff check .
 uv run mypy src/clockcross
 ```
 
-The suite covers leakage boundaries, option-chain normalization, AI fail-closed behavior, Cloudflare gateway contract constraints, risk caps, state-machine legality, SQLite idempotency, uncertain-order reconciliation, public API redaction, live-signal freezing, account-role safeguards, read-only external preflight, and repository secret scanning.
+The suite covers leakage boundaries, option-chain normalization, AI fail-closed behavior, Cloudflare gateway contract constraints, risk caps, state-machine legality, SQLite idempotency, opening/closing order uncertainty, exact-contract exits, competition timing, restart-safe lifecycle recovery, workflow secret isolation, public API redaction, live-signal freezing, account-role safeguards, read-only external preflight, and repository secret scanning.
 
 ## Project documents
 
