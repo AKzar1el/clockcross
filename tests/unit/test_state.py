@@ -1,3 +1,5 @@
+import pytest
+
 from clockcross.domain import EpisodeState
 from clockcross.state import EpisodeMachine, InvalidTransition
 
@@ -13,6 +15,7 @@ def test_legal_episode_path_reaches_monitoring_and_closed():
         EpisodeState.ORDER_SUBMITTED,
         EpisodeState.ORDER_FILLED,
         EpisodeState.MONITORING,
+        EpisodeState.EXIT_SUBMITTED,
         EpisodeState.CLOSED,
     ):
         assert machine.advance(state) is state
@@ -46,3 +49,16 @@ def test_cancelled_and_rejected_orders_can_close_without_monitoring():
         machine = EpisodeMachine(EpisodeState.ORDER_SUBMITTED)
         machine.advance(terminal)
         assert machine.advance(EpisodeState.CLOSED) is EpisodeState.CLOSED
+
+
+def test_filled_position_requires_explicit_exit_submission_before_close():
+    machine = EpisodeMachine(EpisodeState.ORDER_FILLED)
+    assert machine.advance(EpisodeState.MONITORING) is EpisodeState.MONITORING
+    assert machine.advance(EpisodeState.EXIT_SUBMITTED) is EpisodeState.EXIT_SUBMITTED
+    assert machine.advance(EpisodeState.CLOSED) is EpisodeState.CLOSED
+
+
+def test_monitoring_cannot_jump_directly_to_closed():
+    machine = EpisodeMachine(EpisodeState.MONITORING)
+    with pytest.raises(InvalidTransition):
+        machine.advance(EpisodeState.CLOSED)

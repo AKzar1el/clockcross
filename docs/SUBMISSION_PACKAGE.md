@@ -22,7 +22,9 @@ ClockCross is an autonomous AI options-trading agent built for the Alpaca AI Tra
 
 The research process is deliberately falsification-first. The initial real Alpaca historical run returned `MUTATE`, not `GO`: COIN retained useful out-of-sample evidence, MSTR weakened materially in 2026, QQQ remained a broad-market control, and the intentionally severe 100 bps underlying-friction gate failed. ClockCross preserved that negative evidence and narrowed the execution universe to COIN instead of tuning until everything looked positive.
 
-A live episode freezes the cross-market feature set, checks opening confirmation, validates a current 7–21 DTE COIN option chain, gathers read-only Alpaca MCP context, and asks a schema-bounded AI adjudicator for one of three outputs: continuation, reversion, or abstain. The model cannot choose symbols, contracts, DTE, sizing, or order parameters. A deterministic risk governor constructs only 1:1 vertical debit spreads, enforces position and portfolio loss caps, and submits paper MLeg orders through Alpaca with deterministic client-order IDs and reconciliation-before-retry behavior.
+A live episode freezes the cross-market feature set, checks opening confirmation, validates a current 7–21 DTE COIN option chain, gathers read-only Alpaca MCP context, and asks a schema-bounded AI adjudicator for one of three outputs: continuation, reversion, or abstain. The model cannot choose symbols, contracts, DTE, sizing, order prices, or exits. A deterministic risk governor constructs only 1:1 vertical debit spreads, enforces position and portfolio loss caps, and submits paper MLeg orders through Alpaca with deterministic client-order IDs and reconciliation-before-retry behavior.
+
+Competition entries are restricted to the frozen 09:55–10:05 ET decision window. An opening order gets a fixed 180-second fill window and is canceled only when cancellation can be proven. A filled position exits at 10:55 ET, matching the frozen 60-minute research horizon, using the exact opening contracts in a deterministic closing MLeg. Opening and closing lifecycle state is persisted in SQLite so a restart reconciles known order identities instead of recomputing a new signal.
 
 The public judge demo exposes the frozen research result, negative evidence, architecture, risk envelope, and verified development preflight without exposing trading controls, credentials, or a live account connection. ClockCross is paper-only and built around auditable abstention as much as trading.
 
@@ -83,7 +85,7 @@ The judge demo already references this asset through Open Graph and Twitter-card
 
 Recommended asset: `deploy/cloudflare-demo/public/og-image.png`.
 
-GitHub's repository social-preview control is a repository Settings UI upload rather than a tracked repository file. Upload this image manually under **Repository → Settings → Social preview → Edit → Upload an image** after the feature branch is merged. The current 1200×630 solid-background PNG is above GitHub's documented 640×320 minimum and below the 1 MB limit.
+GitHub's repository social-preview control is a repository Settings UI upload rather than a tracked repository file. Upload this image manually under **Repository → Settings → Social preview → Edit → Upload an image** after the hardening branch is merged. The current 1200×630 solid-background PNG is above GitHub's documented 640×320 minimum and below the 1 MB limit.
 
 ### Logo / application identity
 
@@ -110,13 +112,13 @@ Aim for a compact judge-first recording rather than a feature tour.
 2. **0:25–1:10 — Evidence**  
    Show the frozen `MUTATE` result, COIN evidence, MSTR deterioration, QQQ control, and failed 100 bps friction test.
 3. **1:10–2:00 — Autonomous pipeline**  
-   Residual → confirmation → option feasibility → Alpaca MCP context → bounded AI → deterministic risk → Alpaca MLeg paper execution.
+   Residual → confirmation → option feasibility → Alpaca MCP context → bounded AI → deterministic risk → Alpaca MLeg paper entry → bounded fill lifecycle → deterministic 10:55 exit.
 4. **2:00–2:45 — Safety / AI authority**  
-   Explain the three AI outputs, fail-closed abstention, COIN-only scope, 7–21 DTE debit spreads, deterministic sizing and idempotency.
+   Explain the three AI outputs, fail-closed abstention, COIN-only scope, 7–21 DTE debit spreads, deterministic sizing, deterministic exit and idempotency.
 5. **2:45–3:35 — Demo**  
    Walk the judge demo and, once available, show one real competition episode with either a trade or an abstention and its ledger evidence.
 6. **3:35–4:15 — Alpaca integration**  
-   Show MCP read-only context, current chain feasibility, paper MLeg execution, and competition-account discipline.
+   Show MCP read-only context, current chain feasibility, paper MLeg entry/close execution, deterministic reconciliation, and competition-account discipline.
 7. **4:15–4:30 — Close**  
    ClockCross is built to reject weak evidence, abstain when uncertain, and expose exactly why it acted or did not act.
 
@@ -128,8 +130,8 @@ Aim for a compact judge-first recording rather than a feature tour.
 4. **What survived** — COIN evidence, MSTR negative evidence, QQQ control, failed friction test.
 5. **Autonomous system** — end-to-end architecture diagram.
 6. **AI is bounded** — continuation / reversion / abstain; deterministic authority boundaries.
-7. **Defined-risk execution** — 7–21 DTE COIN vertical debit spreads, risk caps, idempotency and reconciliation.
-8. **Alpaca integration** — historical/data feeds, MCP read-only context, Trading API MLeg paper execution.
+7. **Defined-risk lifecycle** — 7–21 DTE COIN debit spreads, risk caps, bounded fill, 10:55 exit, idempotency and reconciliation.
+8. **Alpaca integration** — historical/data feeds, MCP read-only context, Trading API MLeg paper entry and close.
 9. **Evidence console** — judge-demo screenshot + development preflight 5/5.
 10. **Competition proof** — final account equity/P&L, trades + abstentions, and submission links. Populate only after real competition episodes exist.
 
@@ -144,4 +146,6 @@ Aim for a compact judge-first recording rather than a feature tour.
 
 ## Final repository handoff
 
-The implementation currently lives on `feat/clockcross-core` behind draft PR #1. Do **not** submit the repository as final while the default `main` branch still points to the pre-implementation baseline. The branch should be merged only after the guarded development-account MLeg smoke/cancel gate and the fresh competition-account startup checks required by `docs/SUBMISSION_CHECKLIST.md` are satisfied.
+The competition lifecycle hardening is being finalized on `feat/competition-runtime-hardening`. The branch adds the bounded opening lifecycle, deterministic research-aligned close, restart-safe persistence, competition timing gates, truthful live-liquidity claims, and the event-bounded GitHub Actions launcher. Merge only after the complete CI suite is green on the final branch/PR commit.
+
+After merge, configure the GitHub Actions environment `competition` with the fresh judging-account secrets documented in `docs/OPERATIONS.md`. The Monday development-account MLeg submit/cancel proof and the fresh competition-account startup/first episode are external gates and must remain reported as pending until they actually succeed.

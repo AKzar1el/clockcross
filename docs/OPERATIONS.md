@@ -132,6 +132,8 @@ All market semantics use `America/New_York`.
 - 09:25 ET — feature freeze.
 - 09:30–09:40 ET — opening confirmation.
 - 09:55 ET — earliest autonomous decision.
+- 10:05 ET — latest permitted new competition entry; materially delayed signals fail closed.
+- 10:55 ET — deterministic research-aligned exit target for a filled spread.
 
 At 09:55, stock historical reconstruction is capped at 09:40 SIP data. Never widen that end time to “now” on the Basic data plan.
 
@@ -149,11 +151,19 @@ uv run clockcross run-once --date YYYY-MM-DD --mode paper
 
 A dry run may reach `RISK_APPROVED` but never calls Alpaca order submission.
 
+For the dedicated competition lifecycle, use:
+
+```bash
+uv run clockcross competition-session --date YYYY-MM-DD
+```
+
+`competition-session` owns entry reconciliation, a fixed 180-second opening fill window, proven cancellation of an unfilled entry, monitoring of a filled position, the 10:55 ET exit, and at most one deterministic close replacement. It never recomputes a signal after the episode has moved beyond the entry decision state.
+
 ## 5. Restart / uncertain order
 
-If a run ends at `ORDER_SUBMITTED` or reports `order_indeterminate`, **do not run a new episode for that date**.
+If a run ends at `ORDER_SUBMITTED`, `EXIT_SUBMITTED`, or reports an indeterminate order, **do not start a new daily signal**.
 
-Use:
+The competition runtime resumes the persisted lifecycle by exact deterministic order identity. The lower-level recovery command remains available for opening-order inspection:
 
 ```bash
 uv run clockcross reconcile --date YYYY-MM-DD
@@ -173,7 +183,7 @@ Public routes are read-only. The console strips account identifiers, credential-
 
 ## 7. Final-day controls
 
-ClockCross blocks new competition entries at 10:20 ET on 2026-09-04, leaving buffer before the 17:00 CEST submission deadline. Before submission:
+ClockCross applies the same **10:05 ET latest-entry gate on every competition day**. The older September 4 10:20 ET hard cutoff remains an independent backstop, but the stricter 10:05 gate wins in normal operation. Before the 17:00 CEST submission deadline:
 
 1. reconcile every non-terminal episode;
 2. inspect account positions/orders in Alpaca;
@@ -187,3 +197,25 @@ ClockCross blocks new competition entries at 10:20 ET on 2026-09-04, leaving buf
 Allowed: correctness/safety fixes with commit + changelog/ledger note.
 
 Not allowed: manual trade selection, loss-driven threshold retuning, account resets, silently changing the live policy, adding MSTR/QQQ execution, or weakening risk gates to create trades.
+
+## 9. Scheduled competition workflow
+
+After merge, `.github/workflows/competition-runtime.yml` is the canonical autonomous launcher. GitHub scheduled workflows run from the default branch, so the file must exist on `main` before Monday's first competition session.
+
+The workflow is intentionally event-bounded and timezone-aware:
+
+- 2026-08-31 at 09:57 `America/New_York`;
+- 2026-09-01 through 2026-09-04 at 09:57 `America/New_York`;
+- optional `workflow_dispatch` recovery, still restricted to the five event dates and `main`.
+
+Use a GitHub Actions environment named **`competition`** and add exactly these encrypted secrets there:
+
+- `ALPACA_COMPETITION_API_KEY`
+- `ALPACA_COMPETITION_SECRET_KEY`
+- `CLOCKCROSS_AI_GATEWAY_BEARER`
+
+The workflow maps them to the runtime's `ALPACA_API_KEY`, `ALPACA_SECRET_KEY`, and `LLM_API_KEY` variables. It hard-sets `CLOCKCROSS_ACCOUNT_ROLE=competition` and `CLOCKCROSS_ALLOW_DEV_ORDER=false`, runs `clockcross preflight` before the order-capable command, and never echoes an environment dump or literal credential.
+
+Each run restores the newest completed prior `clockcross-state` artifact if present, then uploads the closed-run SQLite database (plus SQLite WAL/SHM companions if they exist) with 10-day retention. The absence of a previous artifact on the first run is valid. Concurrency prevents two competition-session jobs from overlapping.
+
+Because scheduled GitHub Actions can start late, ClockCross itself remains the final time authority. A delayed job that reaches the strategy after 10:05 ET must fail closed rather than stretching the frozen signal window.

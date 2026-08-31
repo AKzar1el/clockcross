@@ -154,6 +154,13 @@ class Ledger:
         ).fetchone()
         return None if row is None else self._episode(row)
 
+    def get_unresolved_episode(self, underlying: str) -> EpisodeRecord | None:
+        row = self._conn.execute(
+            "SELECT * FROM episodes WHERE underlying = ? AND state NOT IN (?, ?) ORDER BY session_date ASC, created_at ASC LIMIT 1",
+            (underlying, EpisodeState.ABSTAINED.value, EpisodeState.CLOSED.value),
+        ).fetchone()
+        return None if row is None else self._episode(row)
+
     def transition(self, episode_id: str, requested: EpisodeState, *, event: str, payload: dict[str, Any] | None = None) -> EpisodeRecord:
         with self._conn:
             row = self._conn.execute("SELECT * FROM episodes WHERE episode_id = ?", (episode_id,)).fetchone()
@@ -206,11 +213,23 @@ class Ledger:
         row = self._conn.execute("SELECT * FROM orders WHERE client_order_id = ?", (client_order_id,)).fetchone()
         return None if row is None else self._order(row)
 
+    def get_orders_for_episode(self, episode_id: str) -> list[OrderRecord]:
+        rows = self._conn.execute(
+            "SELECT * FROM orders WHERE episode_id = ? ORDER BY order_id ASC", (episode_id,)
+        ).fetchall()
+        return [self._order(row) for row in rows]
+
     def get_latest_order_for_episode(self, episode_id: str) -> OrderRecord | None:
         row = self._conn.execute(
             "SELECT * FROM orders WHERE episode_id = ? ORDER BY order_id DESC LIMIT 1", (episode_id,)
         ).fetchone()
         return None if row is None else self._order(row)
+
+    def get_latest_order_for_phase(self, episode_id: str, phase: str) -> OrderRecord | None:
+        for order in reversed(self.get_orders_for_episode(episode_id)):
+            if order.payload.get("phase") == phase:
+                return order
+        return None
 
     def update_order(self, client_order_id: str, *, alpaca_order_id: str | None, status: str, payload: dict[str, Any] | None = None) -> OrderRecord:
         now = _utcnow().isoformat()

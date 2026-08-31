@@ -7,9 +7,11 @@ from clockcross.domain import OptionLeg, OrderSide, RiskDecision, SpreadCandidat
 from clockcross.ledger import Ledger
 from clockcross.trading.execution import (
     AlpacaPaperTradingRestClient,
+    CloseInstruction,
     ExecutionService,
     IndeterminateOrderError,
     build_client_order_id,
+    build_close_client_order_id,
 )
 
 
@@ -26,6 +28,16 @@ def candidate():
     )
 
 
+def close_instruction(attempt: int = 0):
+    return CloseInstruction(
+        long_symbol="COIN260911C00300000",
+        short_symbol="COIN260911C00310000",
+        limit_price=Decimal("-1.25"),
+        quote_timestamp=datetime(2026, 8, 31, 14, 55, tzinfo=timezone.utc),
+        attempt=attempt,
+    )
+
+
 def approved():
     return RiskDecision(approved=True, max_loss=Decimal("250"), aggregate_defined_loss=Decimal("250"))
 
@@ -35,6 +47,16 @@ def test_client_order_id_is_deterministic_and_short():
     two = build_client_order_id("episode-abc", candidate())
     assert one == two
     assert one.startswith("clockcross-")
+    assert len(one) <= 64
+
+
+def test_close_client_order_id_is_deterministic_per_attempt():
+    one = build_close_client_order_id("episode-abc", 0)
+    two = build_close_client_order_id("episode-abc", 0)
+    replacement = build_close_client_order_id("episode-abc", 1)
+    assert one == two
+    assert one != replacement
+    assert one.startswith("clockcross-close-")
     assert len(one) <= 64
 
 
@@ -95,6 +117,25 @@ def test_rest_client_submits_atomic_debit_vertical_payload():
     ]
 
 
+def test_rest_client_closes_exact_vertical_with_close_intents():
+    http = FakeHttp()
+    client = AlpacaPaperTradingRestClient("key", "secret", http_client=http)
+    result = client.submit_close_vertical(
+        close_instruction(), client_order_id="clockcross-close-test"
+    )
+    assert result["id"] == "alpaca-1"
+    body = http.posts[0][2]
+    assert body["order_class"] == "mleg"
+    assert body["qty"] == "1"
+    assert body["type"] == "limit"
+    assert body["limit_price"] == "-1.25"
+    assert body["time_in_force"] == "day"
+    assert body["legs"] == [
+        {"symbol": "COIN260911C00300000", "ratio_qty": "1", "side": "sell", "position_intent": "sell_to_close"},
+        {"symbol": "COIN260911C00310000", "ratio_qty": "1", "side": "buy", "position_intent": "buy_to_close"},
+    ]
+
+
 def test_rest_client_reads_paper_market_clock():
     http = FakeHttp()
     client = AlpacaPaperTradingRestClient("key", "secret", http_client=http)
@@ -123,6 +164,7 @@ class FakeTrading:
         self.reconcile_after_error = reconcile_after_error
         self.lookup_count = 0
         self.submit_count = 0
+        self.close_submit_count = 0
 
     def get_by_client_order_id(self, client_order_id):
         self.lookup_count += 1
@@ -132,6 +174,12 @@ class FakeTrading:
 
     def submit_vertical(self, candidate, *, client_order_id):
         self.submit_count += 1
+        if self.submit_exc is not None:
+            raise self.submit_exc
+        return {**self.submit_result, "client_order_id": client_order_id}
+
+    def submit_close_vertical(self, instruction, *, client_order_id):
+        self.close_submit_count += 1
         if self.submit_exc is not None:
             raise self.submit_exc
         return {**self.submit_result, "client_order_id": client_order_id}
@@ -212,4 +260,37 @@ def test_reconcile_known_order_queries_only_and_updates_ledger(tmp_path):
     assert trading.submit_count == 0
     stored = ledger.get_order_by_client_id("clockcross-known")
     assert stored is not None and stored.status == "filled"
+    ledger.close()
+
+
+def test_close_timeout_reconciles_without_second_post(tmp_path):
+    ledger = Ledger(tmp_path / "ledger.sqlite3")
+    episode = make_episode(ledger)
+    trading = FakeTrading(
+        submit_exc=TimeoutError("uncertain"),
+        reconcile_after_error={"id": "alpaca-close-after-timeout", "status": "accepted"},
+    )
+    result = ExecutionService(ledger=ledger, trading=trading).submit_close(
+        episode.episode_id, close_instruction()
+    )
+    assert result.alpaca_order_id == "alpaca-close-after-timeout"
+    assert result.reconciled is True
+    assert trading.close_submit_count == 1
+    assert trading.lookup_count == 2
+    stored = ledger.get_latest_order_for_phase(episode.episode_id, "close")
+    assert stored is not None and stored.payload["phase"] == "close"
+    ledger.close()
+
+
+def test_close_timeout_without_remote_proof_is_indeterminate(tmp_path):
+    ledger = Ledger(tmp_path / "ledger.sqlite3")
+    episode = make_episode(ledger)
+    trading = FakeTrading(submit_exc=TimeoutError("uncertain"), reconcile_after_error=None)
+    with pytest.raises(IndeterminateOrderError):
+        ExecutionService(ledger=ledger, trading=trading).submit_close(
+            episode.episode_id, close_instruction()
+        )
+    assert trading.close_submit_count == 1
+    stored = ledger.get_latest_order_for_phase(episode.episode_id, "close")
+    assert stored is not None and stored.status == "indeterminate"
     ledger.close()

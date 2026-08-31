@@ -113,3 +113,39 @@ def test_get_latest_order_for_episode(tmp_path):
     latest = ledger.get_latest_order_for_episode(episode.episode_id)
     assert latest is not None and latest.client_order_id == "clockcross-one"
     ledger.close()
+
+
+def test_ledger_finds_unresolved_coin_episode_across_dates(tmp_path):
+    ledger = Ledger(tmp_path / "ledger.sqlite3")
+    old = ledger.create_episode(date(2026, 8, 31), "COIN")
+    ledger.transition(old.episode_id, EpisodeState.FEATURES_FROZEN, event="freeze")
+    unresolved = ledger.get_unresolved_episode("COIN")
+    assert unresolved is not None
+    assert unresolved.episode_id == old.episode_id
+    ledger.close()
+
+
+def test_ledger_returns_orders_and_latest_order_for_phase(tmp_path):
+    ledger = Ledger(tmp_path / "ledger.sqlite3")
+    episode = ledger.create_episode(date(2026, 8, 31), "COIN")
+    ledger.record_order(
+        episode.episode_id,
+        client_order_id="open-1",
+        alpaca_order_id="a1",
+        status="filled",
+        payload={"phase": "open"},
+    )
+    ledger.record_order(
+        episode.episode_id,
+        client_order_id="close-1",
+        alpaca_order_id="a2",
+        status="accepted",
+        payload={"phase": "close", "attempt": 0},
+    )
+    orders = ledger.get_orders_for_episode(episode.episode_id)
+    assert [order.client_order_id for order in orders] == ["open-1", "close-1"]
+    latest_open = ledger.get_latest_order_for_phase(episode.episode_id, "open")
+    latest_close = ledger.get_latest_order_for_phase(episode.episode_id, "close")
+    assert latest_open is not None and latest_open.client_order_id == "open-1"
+    assert latest_close is not None and latest_close.client_order_id == "close-1"
+    ledger.close()

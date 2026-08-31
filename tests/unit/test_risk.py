@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
@@ -72,6 +72,23 @@ def test_rejects_outside_entry_window():
     late = datetime(2026, 8, 31, 15, 31, tzinfo=ET)
     assert "outside_entry_window" in RiskGovernor().evaluate(candidate(), portfolio(), now=early).reasons
     assert "outside_entry_window" in RiskGovernor().evaluate(candidate(), portfolio(), now=late).reasons
+
+
+def test_competition_entry_window_can_be_frozen_to_1005_et():
+    policy = RiskPolicy(entry_end_et=time(10, 5))
+    at_1005 = datetime(2026, 8, 31, 10, 5, tzinfo=ET)
+    at_1006 = datetime(2026, 8, 31, 10, 6, tzinfo=ET)
+
+    allowed = RiskGovernor(policy).evaluate(
+        candidate(reference_time=at_1005), portfolio(), now=at_1005
+    )
+    late = RiskGovernor(policy).evaluate(
+        candidate(reference_time=at_1006), portfolio(), now=at_1006
+    )
+
+    assert allowed.approved is True
+    assert late.approved is False
+    assert "outside_entry_window" in late.reasons
 
 
 def test_rejects_at_or_after_final_event_entry_cutoff():

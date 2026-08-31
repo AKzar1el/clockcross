@@ -4,6 +4,7 @@ import argparse
 from datetime import date
 from decimal import Decimal
 
+from clockcross.competition import CompetitionSessionResult
 from clockcross.domain import EpisodeState
 from clockcross.preflight import PreflightCheck, PreflightReport
 from clockcross.scheduler import EpisodeSummary
@@ -19,17 +20,20 @@ def parser():
     return p
 
 
-def test_runtime_cli_registers_preflight_smoke_run_once_reconcile_and_serve():
+def test_runtime_cli_registers_preflight_smoke_run_once_reconcile_competition_and_serve():
     p = parser()
     preflight = p.parse_args(["preflight"])
     smoke = p.parse_args(["smoke-mleg"])
     run = p.parse_args(["run-once", "--date", "2026-08-31", "--mode", "dry-run"])
     rec = p.parse_args(["reconcile", "--date", "2026-08-31"])
+    competition = p.parse_args(["competition-session", "--date", "2026-08-31"])
     serve = p.parse_args(["serve", "--host", "127.0.0.1", "--port", "8000"])
     assert preflight.command == "preflight"
     assert smoke.command == "smoke-mleg"
     assert run.date == date(2026, 8, 31) and run.mode == "dry-run"
     assert rec.date == date(2026, 8, 31)
+    assert competition.command == "competition-session"
+    assert competition.date == date(2026, 8, 31)
     assert serve.host == "127.0.0.1" and serve.port == 8000
 
 
@@ -188,6 +192,42 @@ def test_reconcile_uses_recovery_builder_not_full_runtime(capsys):
     assert rc == 0
     assert calls == [("reconcile", date(2026, 8, 31)), ("close",)]
     assert '"state": "MONITORING"' in capsys.readouterr().out
+
+
+def test_competition_session_builds_runtime_executes_and_closes(capsys):
+    from clockcross.runtime_cli import execute_runtime_command
+
+    calls = []
+
+    class Orchestrator:
+        def run(self, day):
+            calls.append(("competition", day))
+            return CompetitionSessionResult(
+                session_date=day,
+                state=EpisodeState.CLOSED,
+                reason="research_horizon_exit_filled",
+                entry_order_status="filled",
+                close_order_status="filled",
+                close_attempts=1,
+            )
+
+    class Runtime:
+        orchestrator = Orchestrator()
+
+        def close(self):
+            calls.append(("close",))
+
+    args = parser().parse_args(["competition-session", "--date", "2026-08-31"])
+    rc = execute_runtime_command(
+        args,
+        settings_factory=lambda: object(),
+        competition_builder=lambda settings: Runtime(),
+    )
+    assert rc == 0
+    assert calls == [("competition", date(2026, 8, 31)), ("close",)]
+    output = capsys.readouterr().out
+    assert '"state": "CLOSED"' in output
+    assert '"close_order_status": "filled"' in output
 
 
 def test_serve_constructs_read_only_app_and_invokes_uvicorn():
