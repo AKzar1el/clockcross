@@ -12,8 +12,9 @@ def test_competition_workflow_is_timezone_aware_event_bounded_and_secret_backed(
     text = workflow_text()
     assert 'timezone: "America/New_York"' in text
     assert 'cron: "57 9 31 8 *"' in text
+    assert 'cron: "50 9 1-4 9 *"' in text
     assert 'cron: "55 9 1-4 9 *"' in text
-    assert 'cron: "0 10 1-4 9 *"' in text
+    assert 'cron: "0 10 1-4 9 *"' not in text
     assert 'cron: "57 9 1-4 9 *"' not in text
     assert "environment: competition" in text
     assert "github.ref == 'refs/heads/main'" in text
@@ -24,6 +25,7 @@ def test_competition_workflow_is_timezone_aware_event_bounded_and_secret_backed(
     assert "CLOCKCROSS_AI_GATEWAY_BEARER" in text
     assert "competition-session" in text
     assert "concurrency:" in text
+    assert "cancel-in-progress: false" in text
     for session_date in (
         "2026-08-31",
         "2026-09-01",
@@ -32,6 +34,14 @@ def test_competition_workflow_is_timezone_aware_event_bounded_and_secret_backed(
         "2026-09-04",
     ):
         assert session_date in text
+
+
+def test_competition_workflow_records_trigger_context_for_diagnostics():
+    text = workflow_text()
+    assert "github.event.schedule" in text
+    assert "github.event_name" in text
+    assert "github.run_id" in text
+    assert "GITHUB_STEP_SUMMARY" in text
 
 
 def test_competition_workflow_restores_and_persists_durable_state():
