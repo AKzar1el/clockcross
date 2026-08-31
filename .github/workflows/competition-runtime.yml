@@ -1,0 +1,108 @@
+name: Competition Runtime
+
+on:
+  schedule:
+    - cron: "57 9 31 8 *"
+      timezone: "America/New_York"
+    - cron: "57 9 1-4 9 *"
+      timezone: "America/New_York"
+  workflow_dispatch:
+    inputs:
+      session_date:
+        description: "Competition session date (YYYY-MM-DD); blank uses New York date"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: competition-session-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  competition-session:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    environment: competition
+    env:
+      ALPACA_API_KEY: ${{ secrets.ALPACA_COMPETITION_API_KEY }}
+      ALPACA_SECRET_KEY: ${{ secrets.ALPACA_COMPETITION_SECRET_KEY }}
+      LLM_API_KEY: ${{ secrets.CLOCKCROSS_AI_GATEWAY_BEARER }}
+      LLM_BASE_URL: https://clockcross-ai-gateway.tomi-seregi99.workers.dev/v1
+      LLM_MODEL: clockcross-cloudflare-llama-3.3-70b
+      CLOCKCROSS_ACCOUNT_ROLE: competition
+      CLOCKCROSS_ALLOW_DEV_ORDER: "false"
+      DB_PATH: data/clockcross.sqlite3
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Resolve competition session
+        id: session
+        shell: bash
+        env:
+          REQUESTED_SESSION: ${{ inputs.session_date }}
+        run: |
+          if [ -n "${REQUESTED_SESSION:-}" ]; then
+            SESSION_DATE="$REQUESTED_SESSION"
+          else
+            SESSION_DATE="$(TZ=America/New_York date +%F)"
+          fi
+
+          case "$SESSION_DATE" in
+            2026-08-31|2026-09-01|2026-09-02|2026-09-03|2026-09-04) ;;
+            *)
+              echo "Refusing non-competition session date: $SESSION_DATE" >&2
+              exit 2
+              ;;
+          esac
+
+          echo "session_date=$SESSION_DATE" >> "$GITHUB_OUTPUT"
+
+      - name: Restore durable ClockCross state
+        shell: bash
+        run: |
+          mkdir -p data artifacts/competition
+          PREV_RUN_ID="$(gh run list --workflow competition-runtime.yml --branch "${GITHUB_REF_NAME}" --limit 20 --json databaseId,status --jq '[.[] | select(.status == "completed")][0].databaseId // empty')"
+          if [ -n "$PREV_RUN_ID" ]; then
+            rm -rf .clockcross-state
+            if gh run download "$PREV_RUN_ID" -n clockcross-state -D .clockcross-state; then
+              if [ -f .clockcross-state/clockcross.sqlite3 ]; then
+                cp .clockcross-state/clockcross.sqlite3 data/clockcross.sqlite3
+              fi
+              for suffix in -wal -shm; do
+                if [ -f ".clockcross-state/clockcross.sqlite3${suffix}" ]; then
+                  cp ".clockcross-state/clockcross.sqlite3${suffix}" "data/clockcross.sqlite3${suffix}"
+                fi
+              done
+            fi
+          fi
+
+      - name: Read-only external preflight
+        run: uv run clockcross preflight
+
+      - name: Run autonomous competition session
+        run: uv run clockcross competition-session --date "${{ steps.session.outputs.session_date }}"
+
+      - name: Persist durable ClockCross state
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clockcross-state
+          path: data/clockcross.sqlite3*
+          if-no-files-found: warn
+          retention-days: 10
+          include-hidden-files: false
