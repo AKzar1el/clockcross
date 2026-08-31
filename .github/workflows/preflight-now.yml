@@ -1,0 +1,33 @@
+name: Temporary External Preflight
+
+on:
+  push:
+    paths:
+      - "ops/preflight-trigger"
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: development
+    env:
+      ALPACA_API_KEY: ${{ secrets.ALPACA_DEVELOPMENT_API_KEY }}
+      ALPACA_SECRET_KEY: ${{ secrets.ALPACA_DEVELOPMENT_SECRET_KEY }}
+      LLM_API_KEY: ${{ secrets.CLOCKCROSS_AI_GATEWAY_BEARER }}
+      LLM_BASE_URL: https://clockcross-ai-gateway.tomi-seregi99.workers.dev/v1
+      LLM_MODEL: clockcross-cloudflare-llama-3.3-70b
+      CLOCKCROSS_ACCOUNT_ROLE: development
+      CLOCKCROSS_ALLOW_DEV_ORDER: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: uv sync --extra dev
+      - name: Read-only external preflight
+        run: uv run clockcross preflight
