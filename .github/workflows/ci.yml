@@ -18,6 +18,12 @@ jobs:
           python-version: "3.12"
       - name: Install
         run: uv sync --extra dev
+      - name: Alpaca MCP runtime compatibility
+        run: >-
+          uv run --no-project
+          --with "alpaca-mcp-server==2.2.0"
+          --with "fastmcp==3.4.7"
+          python -c "import alpaca_mcp_server.server; from fastmcp.tools.tool import ToolResult; assert ToolResult is not None"
       - name: Ruff
         run: uv run ruff check .
       - name: Mypy

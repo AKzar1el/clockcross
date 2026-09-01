@@ -126,7 +126,13 @@ class DefaultAlpacaMcpRunner:
         api_key: str,
         secret_key: str,
         command: str = "uvx",
-        args: Sequence[str] = ("alpaca-mcp-server",),
+        args: Sequence[str] = (
+            "--with",
+            "fastmcp==3.4.7",
+            "--from",
+            "alpaca-mcp-server==2.2.0",
+            "alpaca-mcp-server",
+        ),
     ) -> None:
         self._command = command
         self._args = tuple(args)
