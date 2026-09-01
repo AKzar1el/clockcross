@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 import random
-from typing import Literal
+from typing import Literal, TypedDict
 
 import numpy as np
 
@@ -16,6 +16,16 @@ Direction = Literal["bullish", "bearish"]
 _CENTS = Decimal("0.01")
 _DELTA_QUANTUM = Decimal("0.000001")
 _CONTRACT_MULTIPLIER = Decimal("100")
+
+
+class CandidatePayload(TypedDict):
+    long_symbol: str
+    short_symbol: str
+    expiration: str
+    net_delta: float
+    net_debit: float
+    delta_per_debit: float
+    max_loss: float
 
 
 @dataclass(frozen=True)
@@ -96,7 +106,7 @@ def _perturb_chain(
     )
 
 
-def _candidate_payload(candidate: object) -> dict[str, object]:
+def _candidate_payload(candidate: object) -> CandidatePayload:
     from clockcross.domain import SpreadCandidate
 
     if not isinstance(candidate, SpreadCandidate):
@@ -197,10 +207,10 @@ def evaluate_surface_robustness(
                 and payload["short_symbol"] == baseline["short_symbol"]
             )
 
-            net_delta = float(payload["net_delta"])
-            max_loss = float(payload["max_loss"])
-            debit = float(payload["net_debit"])
-            score = float(payload["delta_per_debit"])
+            net_delta = payload["net_delta"]
+            max_loss = payload["max_loss"]
+            debit = payload["net_debit"]
+            score = payload["delta_per_debit"]
             net_deltas.append(net_delta)
             max_losses.append(max_loss)
             debits.append(debit)
