@@ -37,6 +37,7 @@
           <a class="brand" href="#top" aria-label="ClockCross home"><img class="brand-mark" src="/logo-mark.svg" width="30" height="30" alt=""><span>ClockCross</span></a>
           <div class="nav-links">
             <a href="#evidence">Evidence</a>
+            <a href="#backtest">Backtest</a>
             <a href="#system">System</a>
             <a href="#risk">Risk</a>
             <a href="https://github.com/AKzar1el/clockcross" rel="noreferrer">GitHub ↗</a>
@@ -49,13 +50,13 @@
           <p class="lede">ClockCross measures BTC-to-COIN repricing gaps, falsifies the signal chronologically, asks AI for a tightly bounded thesis, then lets deterministic risk gates decide whether a defined-risk Alpaca options spread is allowed to exist.</p>
           <div class="hero-actions">
             <a class="primary" href="#evidence">Inspect the evidence</a>
-            <a class="secondary" href="https://github.com/AKzar1el/clockcross/blob/feat/clockcross-core/docs/ONE_PAGE_WRITEUP.md" rel="noreferrer">Technical writeup ↗</a>
+            <a class="secondary" href="https://github.com/AKzar1el/clockcross/blob/main/docs/ONE_PAGE_WRITEUP.md" rel="noreferrer">Technical writeup ↗</a>
           </div>
           <div class="status-strip" aria-label="Project status">
             <div><span class="label">Research</span><strong>MUTATE</strong></div>
-            <div><span class="label">External preflight</span><strong>5 / 5</strong></div>
+            <div><span class="label">Six-month replay</span><strong>36 AI trades</strong></div>
             <div><span class="label">Live candidate</span><strong>COIN only</strong></div>
-            <div><span class="label">Competition status</span><strong>Not started</strong></div>
+            <div><span class="label">Competition status</span><strong>Episode verified</strong></div>
           </div>
         </section>
       </div>
@@ -63,17 +64,17 @@
 
     <section class="shell statement">
       <p class="kicker">Evidence, not promises.</p>
-      <h2>The first research run did not say “GO.”</h2>
-      <p>ClockCross published the uncomfortable result instead: the broad hypothesis survived several chronological checks, but both crypto-sensitive equities failed an intentionally severe <strong>100 bps</strong> underlying-friction gate. The system therefore returned <strong>MUTATE</strong>, narrowed live execution to the currently supported surface, and kept the failure visible.</p>
+      <h2>The research was allowed to say “no” — and the backtest was allowed to find a bug.</h2>
+      <p>The first Alpaca research run returned <strong>MUTATE</strong>, not GO. After the first autonomous competition episode, a literal chronological replay then exposed a structural spread-construction defect. ClockCross preserved both results, fixed only the structural defect, and left the signal, timing, AI policy, and risk budget frozen.</p>
     </section>
 
     <section id="evidence" class="shell section">
       <div class="section-head">
         <div>
-          <p class="kicker">01 · Chronological research</p>
-          <h2>What survived falsification</h2>
+          <p class="kicker">01 · Initial falsification</p>
+          <h2>What survived the first research pass</h2>
         </div>
-        <p class="section-note">Historical window: 2025-01-02 → 2026-08-28. Equity history used consolidated SIP data. Numbers below are underlying returns, not an options backtest.</p>
+        <p class="section-note">Historical window: 2025-01-02 → 2026-08-28. Equity history used consolidated SIP data. Numbers below are underlying-return diagnostics, not an options-fill backtest.</p>
       </div>
 
       <div class="metric-grid">
@@ -87,19 +88,19 @@
           <span class="metric-tag positive">COIN · 2026 regime</span>
           <strong>+84.07 bps</strong>
           <span>38 signals</span>
-          <p>Recent folds support continuation more than the older aggregate does.</p>
+          <p>The recent COIN regime survived while the broader thesis was narrowed.</p>
         </article>
         <article class="metric negative-card">
           <span class="metric-tag negative">MSTR · rejection evidence</span>
           <strong>-22.72 bps</strong>
           <span>2026 mean</span>
-          <p>The older MSTR effect deteriorated. MSTR is intentionally not execution-eligible.</p>
+          <p>MSTR deteriorated and remains intentionally execution-ineligible.</p>
         </article>
         <article class="metric control-card">
           <span class="metric-tag neutral">QQQ · falsification control</span>
           <strong>-1.56 bps</strong>
           <span>aggregate control mean</span>
-          <p>The broad-market control remained materially weaker than the crypto-sensitive surfaces.</p>
+          <p>The broad-market control remained materially weaker than the crypto-sensitive surface.</p>
         </article>
       </div>
 
@@ -107,8 +108,85 @@
         <div class="disclosure-icon">!</div>
         <div>
           <h3>The failure stays in the record</h3>
-          <p>Both COIN and MSTR failed the original <strong>100 bps</strong> underlying-friction promotion check. ClockCross does not erase or relabel that result. The approved mutation asks a narrower question: can a recent COIN signal be expressed economically through an actual 7-21 DTE defined-risk option spread?</p>
+          <p>Both COIN and MSTR failed the original <strong>100 bps</strong> underlying-friction promotion check. ClockCross did not erase that result. The approved mutation narrowed execution to COIN and asked whether a current signal could be expressed through an actual <strong>7-21 DTE</strong> defined-risk spread.</p>
         </div>
+      </div>
+    </section>
+
+    <section id="backtest" class="dark-band">
+      <div class="shell section">
+        <div class="section-head compact">
+          <div>
+            <p class="kicker">02 · Literal chronological replay</p>
+            <h2>Six months, day by day — including the bad regimes.</h2>
+          </div>
+          <p class="section-note">March 2 → September 1, 2026 · 128 actual Alpaca market days. No historical order endpoint was used. Directional returns are diagnostics, not compounded account returns.</p>
+        </div>
+
+        <div class="metric-grid">
+          <article class="metric featured">
+            <span class="metric-tag positive">Current AI</span>
+            <strong>21-15</strong>
+            <span>36 AI trades · 3 AI abstentions</span>
+            <p><b>58.3%</b> directional hit rate and <b>+50.7 bps</b> mean chosen-direction 60-minute COIN return.</p>
+          </article>
+          <article class="metric">
+            <span class="metric-tag neutral">Frozen continuation</span>
+            <strong>22-17</strong>
+            <span>39 signals</span>
+            <p><b>+15.9 bps</b> mean directional 60-minute return. The AI beat it over six months, not in every regime.</p>
+          </article>
+          <article class="metric negative-card">
+            <span class="metric-tag negative">Negative AI regimes</span>
+            <strong>2 months</strong>
+            <span>preserved, not tuned away</span>
+            <p>June: -38.3 bps<br>July: -57.1 bps</p>
+          </article>
+          <article class="metric control-card">
+            <span class="metric-tag neutral">AI stability</span>
+            <strong>69</strong>
+            <span>deployed-model calls</span>
+            <p>23 quarter signal contexts × 3 calls; 23/23 unanimous actions and 0 action-flip contexts.</p>
+          </article>
+        </div>
+
+        <div class="disclosure">
+          <div class="disclosure-icon">!</div>
+          <div>
+            <h3>The recent 5/5 is not the headline</h3>
+            <p>From August 3 through September 1, the current AI chose the correct 60-minute underlying direction on all five signal days while frozen continuation was correct on one. The six-month replay is shown above precisely so that favorable recent month is not mistaken for a universal regime.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="shell section">
+      <div class="section-head">
+        <div>
+          <p class="kicker">03 · Backtest → defect → bounded fix</p>
+          <h2>The backtest found a production-selection pathology.</h2>
+        </div>
+        <p class="section-note">The fix was structural, predeclared, symmetric for calls and puts, and did not retune the residual threshold, beta, AI prompt/model, risk budget, entry time, or exit horizon.</p>
+      </div>
+
+      <div class="proof-list">
+        <div class="proof"><span>01</span><div><strong>Defect exposed</strong><p>The old net-delta/debit objective could prefer extremely far-OTM shorts with ~0.00-0.02 absolute delta, creating 50-60 point-wide spreads with poor historical short-leg print coverage.</p></div><em>FOUND</em></div>
+        <div class="proof"><span>02</span><div><strong>0.10 short-delta floor</strong><p>The single promoted change requires the short leg to retain at least 0.10 absolute delta. It kept a candidate on all 5 recent signal days.</p></div><em>FIXED</em></div>
+        <div class="proof"><span>03</span><div><strong>Structure improved</strong><p>Mean width fell from 56.9 to <b>29.4 points</b>; historical entry-print coverage improved 40% → 80% and exit-print coverage 20% → 40%, while mean net delta remained ~0.370.</p></div><em>BETTER</em></div>
+        <div class="proof"><span>04</span><div><strong>Post-fix stress</strong><p>12,000 live indicative-surface constructor trials remained 100% constructible in both directions with zero risk-invariant violations.</p></div><em>PASS</em></div>
+      </div>
+
+      <div class="authority-grid">
+        <article>
+          <p class="mini-title">Historical spread proxy — observable</p>
+          <p><strong>Aug 18:</strong> +$120 raw / +$100 after a $0.20 spread-friction stress.</p>
+          <p><strong>Aug 21:</strong> +$59 raw / +$39 after the same stress.</p>
+        </article>
+        <article>
+          <p class="mini-title">Historical spread proxy — unobservable</p>
+          <p><strong>Aug 7, Aug 24, Sep 1:</strong> insufficient historical prints on both selected legs for a full 09:55-10:55 spread score. They are labeled unobservable, not wins or losses.</p>
+          <p>Alpaca historical bars/trades do not recreate arbitrary past snapshot BBO/Greeks, so ClockCross does not claim an exact historical options-fill backtest.</p>
+        </article>
       </div>
     </section>
 
@@ -116,8 +194,8 @@
       <div class="shell section">
         <div class="section-head compact">
           <div>
-            <p class="kicker">02 · Live external proof</p>
-            <h2>Five surfaces checked. Five passed.</h2>
+            <p class="kicker">04 · External preflight</p>
+            <h2>Five live surfaces checked. Five passed.</h2>
           </div>
           <p class="section-note">Encrypted development environment · 2026-08-30. The preflight is read-only and cannot create a trading episode.</p>
         </div>
@@ -131,10 +209,27 @@
       </div>
     </section>
 
+    <section class="shell section safety-proof">
+      <div class="terminal" aria-label="Verified competition episode">
+        <div class="terminal-top"><span></span><span></span><span></span><b>competition episode · 2026-09-01</b></div>
+        <pre><code>$ clockcross competition-session --date 2026-09-01
+preflight: PASS
+opening MLeg: filled
+research-horizon close: filled
+terminal_state: CLOSED</code></pre>
+      </div>
+      <div class="safety-copy">
+        <p class="kicker">05 · Autonomous competition proof</p>
+        <h2>The full paper lifecycle executed.</h2>
+        <p>On <strong>2026-09-01</strong>, the dedicated competition account passed pristine preflight, the opening Alpaca MLeg filled, and the deterministic 10:55 ET exact-contract closing MLeg filled on its first close attempt. The persisted lifecycle reached terminal state <strong>CLOSED</strong>.</p>
+        <p class="muted">No unresolved opening or closing order remained and no manual trade-selection intervention was used. This proves the lifecycle, not future profitability; final event account equity/P&amp;L is reported separately from research diagnostics.</p>
+      </div>
+    </section>
+
     <section id="system" class="shell section">
       <div class="section-head">
         <div>
-          <p class="kicker">03 · Autonomous decision path</p>
+          <p class="kicker">06 · Autonomous decision path</p>
           <h2>AI has authority. It does not have the keys.</h2>
         </div>
         <p class="section-note">The AI can choose a thesis only after evidence gates pass. Contract selection, position sizing, freshness, buying power, and execution remain deterministic.</p>
@@ -158,13 +253,13 @@
         <article>
           <p class="mini-title">AI may choose</p>
           <div class="pill-row"><span>continuation</span><span>reversion</span><span>abstain</span></div>
-          <p>The model receives a compact schema-bounded context after deterministic signal and chain checks. Company-specific news or unclear context pushes toward abstention.</p>
+          <p>Across the six-month replay, the bounded AI produced 36 trades and 3 AI abstentions. Deterministic threshold/data gates produced additional abstentions before the AI was even eligible to act.</p>
         </article>
         <article>
           <p class="mini-title">AI may not change</p>
           <ul class="clean-list">
             <li>execution symbol or contract universe</li>
-            <li>DTE, quote-freshness, or liquidity rules</li>
+            <li>DTE, quote-freshness, short-delta, or liquidity rules</li>
             <li>position or aggregate risk caps</li>
             <li>buying-power and portfolio checks</li>
             <li>order type, order identity, or reconciliation policy</li>
@@ -176,13 +271,16 @@
     <section id="risk" class="shell section">
       <div class="section-head">
         <div>
-          <p class="kicker">04 · Deterministic safety envelope</p>
+          <p class="kicker">07 · Deterministic safety envelope</p>
           <h2>No thesis can override these gates.</h2>
         </div>
       </div>
       <div class="risk-grid">
         <div><strong>COIN only</strong><span>Approved mutation surface</span></div>
         <div><strong>7-21 DTE</strong><span>No 0DTE contracts</span></div>
+        <div><strong>0.45-0.65 Δ</strong><span>Long-leg absolute-delta window</span></div>
+        <div><strong>≥ 0.10 Δ</strong><span>Short-leg absolute-delta floor</span></div>
+        <div><strong>≥ 0.30 Δ</strong><span>Minimum net directional delta</span></div>
         <div><strong>1:1 verticals</strong><span>Same expiration, defined debit</span></div>
         <div><strong>Limit MLeg</strong><span>No naked option execution</span></div>
         <div><strong>1%</strong><span>Max defined loss per position</span></div>
@@ -199,22 +297,22 @@
 {"ok": false, "error": "U.S. market is not open; refusing MLeg smoke"}</code></pre>
       </div>
       <div class="safety-copy">
-        <p class="kicker">05 · Fail-closed order proof</p>
-        <h2>The dangerous path was tested with opt-in enabled.</h2>
+        <p class="kicker">08 · Fail-closed order proof</p>
+        <h2>Unsafe conditions stop before submission.</h2>
         <p>Development-order opt-in was deliberately enabled while the U.S. market was closed. ClockCross consulted the market clock and refused before option-chain construction or order submission. <strong>No smoke order was created.</strong></p>
-        <p class="muted">The final competition paper account remains separate and will never receive a development smoke trade.</p>
+        <p class="muted">Development and competition paper accounts remain separated; the competition account is never used for smoke testing.</p>
       </div>
     </section>
 
     <section class="dark-band sponsor-band">
       <div class="shell section">
-        <p class="kicker">06 · Alpaca implementation</p>
+        <p class="kicker">09 · Alpaca implementation</p>
         <h2>Sponsor technology is inside the decision path, not added as decoration.</h2>
         <div class="sponsor-grid">
-          <article><strong>Historical + market data</strong><p>BTC and equity history drive residual research and live signal reconstruction.</p></article>
-          <article><strong>Options chain</strong><p>Actual COIN contracts drive deterministic feasibility and spread construction.</p></article>
+          <article><strong>Historical + market data</strong><p>BTC and equity history drive the residual research, six-month replay, and live signal reconstruction.</p></article>
+          <article><strong>Options data</strong><p>Actual COIN contracts drive deterministic feasibility and spread construction; historical option prints bound what can honestly be reconstructed.</p></article>
           <article><strong>Alpaca MCP</strong><p>Read-only account/market context is captured as an auditable AI evidence surface.</p></article>
-          <article><strong>Trading REST</strong><p>Atomic paper MLeg limit orders use deterministic identities and reconciliation.</p></article>
+          <article><strong>Trading REST</strong><p>Atomic paper MLeg limit orders use deterministic identities, persisted recovery, and exact-contract exits.</p></article>
         </div>
       </div>
     </section>
@@ -222,13 +320,14 @@
     <section class="shell final-section">
       <div>
         <p class="kicker">Current competition state</p>
-        <h2>Development verified.<br>Competition account not started.</h2>
-        <p>ClockCross is intentionally preserving the fresh-account requirement until development smoke testing is complete. This page is a static, zero-secret judge surface: it has no trading controls, no live account connection, and no mutable application state.</p>
+        <h2>Research replayed.<br>Autonomous lifecycle proven.</h2>
+        <p>The first dedicated-account competition episode is externally verified and the post-episode constructor correction is merged with full CI. This remains a static, zero-secret judge surface: no trading controls, credentials, account connection, or mutable application state are exposed. Final event account equity/P&amp;L is captured separately before submission rather than inferred from research or proxy returns.</p>
       </div>
       <div class="final-links">
         <a href="https://github.com/AKzar1el/clockcross" rel="noreferrer">Source repository ↗</a>
-        <a href="https://github.com/AKzar1el/clockcross/blob/feat/clockcross-core/docs/research/2026-08-29-initial-alpaca-run.md" rel="noreferrer">Research interpretation ↗</a>
-        <a href="https://github.com/AKzar1el/clockcross/blob/feat/clockcross-core/docs/OPERATIONS.md" rel="noreferrer">Safety runbook ↗</a>
+        <a href="https://github.com/AKzar1el/clockcross/blob/main/docs/research/2026-09-01-end-to-end-backtest.md" rel="noreferrer">Six-month backtest ↗</a>
+        <a href="https://github.com/AKzar1el/clockcross/blob/main/docs/ONE_PAGE_WRITEUP.md" rel="noreferrer">Technical writeup ↗</a>
+        <a href="https://github.com/AKzar1el/clockcross/blob/main/docs/OPERATIONS.md" rel="noreferrer">Safety runbook ↗</a>
       </div>
     </section>
 
