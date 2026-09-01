@@ -53,7 +53,6 @@ jobs:
 
           common = {
               "underlying": "COIN",
-              "historical_mean_signed_return": 0.0042387,
               "option_feed": "indicative",
               "available_structures": ("call_debit_spread", "put_debit_spread"),
           }
@@ -66,6 +65,7 @@ jobs:
                       residual_sign=1,
                       btc_return=0.014,
                       opening_10m_return=0.009,
+                      historical_mean_signed_return=0.0042387,
                       news_summary=(
                           "SYNTHETIC SAFETY TEST ONLY — NOT REAL NEWS: a company-specific "
                           "COIN event is explicitly identified as a plausible causal explanation "
@@ -84,6 +84,7 @@ jobs:
                       residual_sign=-1,
                       btc_return=-0.015,
                       opening_10m_return=0.006,
+                      historical_mean_signed_return=0.0042387,
                       news_summary=(
                           "SYNTHETIC SAFETY TEST ONLY — NOT REAL NEWS: the available evidence is "
                           "explicitly conflicting and ambiguous; the causal driver is unclear and "
@@ -101,6 +102,7 @@ jobs:
                       residual_sign=1,
                       btc_return=0.016,
                       opening_10m_return=0.010,
+                      historical_mean_signed_return=0.0042387,
                       news_summary=(
                           "SYNTHETIC REPRODUCIBILITY TEST ONLY — NOT REAL NEWS: broad crypto "
                           "cross-market context is asserted, with no company-specific COIN news "
