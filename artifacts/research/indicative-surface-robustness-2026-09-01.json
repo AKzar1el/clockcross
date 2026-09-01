@@ -1,0 +1,206 @@
+{
+  "contract_count": 416,
+  "feed": "indicative",
+  "max_net_debit": "10.00",
+  "risk_cap_dollars": "1000.00",
+  "retrieved_at": "2026-09-01T17:21:46.450750+00:00",
+  "trials_per_band_per_direction": 2000,
+  "predeclared_interpretation": {
+    "hard_failure": "any risk_invariant_violations > 0",
+    "micro_candidate_rate_min": 0.95,
+    "small_candidate_rate_min": 0.90,
+    "micro_same_long_warning_below": 0.70,
+    "moderate_band": "descriptive only"
+  },
+  "studies": {
+    "bullish": {
+      "baseline": {
+        "long_symbol": "COIN260911C00180000",
+        "short_symbol": "COIN260911C00217500",
+        "expiration": "2026-09-11",
+        "net_delta": 0.4205,
+        "net_debit": 6.13,
+        "max_loss": 613.0,
+        "delta_per_debit": 0.06859706362153344
+      },
+      "bands": {
+        "micro": {
+          "candidate_rate": 1.0,
+          "same_pair_rate": 0.9775,
+          "same_long_rate": 1.0,
+          "same_short_rate": 0.9775,
+          "same_expiration_rate": 1.0,
+          "risk_invariant_violations": 0,
+          "net_delta_p05": 0.41339665,
+          "net_delta_p50": 0.420525,
+          "net_delta_p95": 0.4272871,
+          "max_loss_p05": 611.0,
+          "max_loss_p50": 613.0,
+          "max_loss_p95": 615.0,
+          "net_debit_p05": 6.11,
+          "net_debit_p50": 6.13,
+          "net_debit_p95": 6.15,
+          "delta_per_debit_p05": 0.06748047409532919,
+          "delta_per_debit_p50": 0.06860929095971646,
+          "delta_per_debit_p95": 0.06971825358173776,
+          "top_pairs": [
+            {"pair": "COIN260911C00180000|COIN260911C00217500", "rate": 0.9775},
+            {"pair": "COIN260911C00180000|COIN260911C00215000", "rate": 0.0225}
+          ]
+        },
+        "small": {
+          "candidate_rate": 1.0,
+          "same_pair_rate": 0.8375,
+          "same_long_rate": 0.9995,
+          "same_short_rate": 0.838,
+          "same_expiration_rate": 1.0,
+          "risk_invariant_violations": 0,
+          "net_delta_p05": 0.39871925,
+          "net_delta_p50": 0.419906,
+          "net_delta_p95": 0.4340359,
+          "max_loss_p05": 583.0,
+          "max_loss_p50": 612.0,
+          "max_loss_p95": 617.0,
+          "net_debit_p05": 5.83,
+          "net_debit_p50": 6.12,
+          "net_debit_p95": 6.17,
+          "delta_per_debit_p05": 0.06646839834471398,
+          "delta_per_debit_p50": 0.0686601625723699,
+          "delta_per_debit_p95": 0.07086075795962606,
+          "top_pairs": [
+            {"pair": "COIN260911C00180000|COIN260911C00217500", "rate": 0.8375},
+            {"pair": "COIN260911C00180000|COIN260911C00215000", "rate": 0.087},
+            {"pair": "COIN260911C00180000|COIN260911C00210000", "rate": 0.0515},
+            {"pair": "COIN260911C00180000|COIN260911C00212500", "rate": 0.016},
+            {"pair": "COIN260911C00180000|COIN260911C00207500", "rate": 0.0075}
+          ]
+        },
+        "moderate": {
+          "candidate_rate": 1.0,
+          "same_pair_rate": 0.473,
+          "same_long_rate": 0.9015,
+          "same_short_rate": 0.5255,
+          "same_expiration_rate": 1.0,
+          "risk_invariant_violations": 0,
+          "net_delta_p05": 0.37973545,
+          "net_delta_p50": 0.4230775,
+          "net_delta_p95": 0.48748885,
+          "max_loss_p05": 559.95,
+          "max_loss_p50": 609.0,
+          "max_loss_p95": 720.0,
+          "net_debit_p05": 5.5995,
+          "net_debit_p50": 6.09,
+          "net_debit_p95": 7.2,
+          "delta_per_debit_p05": 0.06579587014068675,
+          "delta_per_debit_p50": 0.06947091874628639,
+          "delta_per_debit_p95": 0.07329593339723753,
+          "top_pairs": [
+            {"pair": "COIN260911C00180000|COIN260911C00217500", "rate": 0.473},
+            {"pair": "COIN260911C00180000|COIN260911C00210000", "rate": 0.142},
+            {"pair": "COIN260911C00180000|COIN260911C00215000", "rate": 0.116},
+            {"pair": "COIN260911C00180000|COIN260911C00207500", "rate": 0.056},
+            {"pair": "COIN260911C00180000|COIN260911C00212500", "rate": 0.0555}
+          ]
+        }
+      }
+    },
+    "bearish": {
+      "baseline": {
+        "long_symbol": "COIN260911P00177500",
+        "short_symbol": "COIN260911P00140000",
+        "expiration": "2026-09-11",
+        "net_delta": 0.4523,
+        "net_debit": 6.83,
+        "max_loss": 683.0,
+        "delta_per_debit": 0.06622254758418741
+      },
+      "bands": {
+        "micro": {
+          "candidate_rate": 1.0,
+          "same_pair_rate": 0.82,
+          "same_long_rate": 1.0,
+          "same_short_rate": 0.82,
+          "same_expiration_rate": 1.0,
+          "risk_invariant_violations": 0,
+          "net_delta_p05": 0.44602835,
+          "net_delta_p50": 0.4524895,
+          "net_delta_p95": 0.45905475,
+          "max_loss_p05": 681.0,
+          "max_loss_p50": 683.0,
+          "max_loss_p95": 685.0,
+          "net_debit_p05": 6.81,
+          "net_debit_p50": 6.83,
+          "net_debit_p95": 6.85,
+          "delta_per_debit_p05": 0.06533103447572594,
+          "delta_per_debit_p50": 0.06625644216691068,
+          "delta_per_debit_p95": 0.06724284871813588,
+          "top_pairs": [
+            {"pair": "COIN260911P00177500|COIN260911P00140000", "rate": 0.82},
+            {"pair": "COIN260911P00177500|COIN260911P00144000", "rate": 0.18}
+          ]
+        },
+        "small": {
+          "candidate_rate": 1.0,
+          "same_pair_rate": 0.687,
+          "same_long_rate": 1.0,
+          "same_short_rate": 0.687,
+          "same_expiration_rate": 1.0,
+          "risk_invariant_violations": 0,
+          "net_delta_p05": 0.44097355,
+          "net_delta_p50": 0.453707,
+          "net_delta_p95": 0.46589975,
+          "max_loss_p05": 679.0,
+          "max_loss_p50": 683.0,
+          "max_loss_p95": 686.0,
+          "net_debit_p05": 6.79,
+          "net_debit_p50": 6.83,
+          "net_debit_p95": 6.86,
+          "delta_per_debit_p05": 0.06463573206442168,
+          "delta_per_debit_p50": 0.06646351852965045,
+          "delta_per_debit_p95": 0.06826579137922126,
+          "top_pairs": [
+            {"pair": "COIN260911P00177500|COIN260911P00140000", "rate": 0.687},
+            {"pair": "COIN260911P00177500|COIN260911P00144000", "rate": 0.2965},
+            {"pair": "COIN260911P00177500|COIN260911P00141000", "rate": 0.011},
+            {"pair": "COIN260911P00177500|COIN260911P00150000", "rate": 0.0055}
+          ]
+        },
+        "moderate": {
+          "candidate_rate": 1.0,
+          "same_pair_rate": 0.491,
+          "same_long_rate": 1.0,
+          "same_short_rate": 0.491,
+          "same_expiration_rate": 1.0,
+          "risk_invariant_violations": 0,
+          "net_delta_p05": 0.4279116,
+          "net_delta_p50": 0.4577575,
+          "net_delta_p95": 0.48362325,
+          "max_loss_p05": 656.95,
+          "max_loss_p50": 682.0,
+          "max_loss_p95": 690.0,
+          "net_debit_p05": 6.5695,
+          "net_debit_p50": 6.82,
+          "net_debit_p95": 6.9,
+          "delta_per_debit_p05": 0.06359124637197484,
+          "delta_per_debit_p50": 0.06722944989413654,
+          "delta_per_debit_p95": 0.07087738743177684,
+          "top_pairs": [
+            {"pair": "COIN260911P00177500|COIN260911P00140000", "rate": 0.491},
+            {"pair": "COIN260911P00177500|COIN260911P00144000", "rate": 0.204},
+            {"pair": "COIN260911P00177500|COIN260911P00136000", "rate": 0.1},
+            {"pair": "COIN260911P00177500|COIN260911P00141000", "rate": 0.09},
+            {"pair": "COIN260911P00177500|COIN260911P00150000", "rate": 0.088}
+          ]
+        }
+      }
+    }
+  },
+  "conclusion": {
+    "risk_invariants_passed": true,
+    "micro_constructibility_passed_both_directions": true,
+    "small_constructibility_passed_both_directions": true,
+    "micro_same_long_passed_both_directions": true,
+    "live_constructor_change_recommended": false
+  },
+  "note": "Bounded perturbation sensitivity around one observed Basic indicative snapshot. The perturbation bands are stress envelopes, not estimates of Alpaca feed error probabilities. No trading/execution client was instantiated and no order submission endpoint was called."
+}
