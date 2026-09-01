@@ -13,7 +13,7 @@ permissions:
 jobs:
   diagnostic:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     environment: competition
     env:
       ALPACA_API_KEY: ${{ secrets.ALPACA_COMPETITION_API_KEY }}
@@ -23,7 +23,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Sweep delayed-safe option activity gates
+      - name: Fetch sanitized Sep 1 order fills
         shell: bash
         run: |
           mkdir -p artifacts/diagnostic
@@ -32,172 +32,72 @@ jobs:
           import os
           import urllib.parse
           import urllib.request
-          from collections import defaultdict
-          from datetime import date, datetime, time
           from pathlib import Path
-          from zoneinfo import ZoneInfo
 
-          BASE = "https://data.alpaca.markets"
-          HEADERS = {
+          headers = {
               "APCA-API-KEY-ID": os.environ["ALPACA_API_KEY"],
               "APCA-API-SECRET-KEY": os.environ["ALPACA_SECRET_KEY"],
           }
-          ET = ZoneInfo("America/New_York")
-          UTC = ZoneInfo("UTC")
-
-          # Independent control set recovered from the earlier five-signal width-family proxy.
-          # P&L labels are historical trade-bar proxies, not executable-fill claims.
-          ROWS = [
-              ("2026-08-07", 5, "COIN260821C00150000", "COIN260821C00155000", 52.0, "priced"),
-              ("2026-08-07", 10, "COIN260821C00150000", "COIN260821C00160000", 29.0, "priced"),
-              ("2026-08-07", 15, "COIN260821C00150000", "COIN260821C00165000", 82.0, "priced"),
-              ("2026-08-07", 20, "COIN260821C00150000", "COIN260821C00170000", 86.0, "priced"),
-              ("2026-08-18", 5, "COIN260904C00147000", "COIN260904C00152500", None, "insufficient_trade_bars"),
-              ("2026-08-18", 10, "COIN260904C00147000", "COIN260904C00157500", None, "insufficient_trade_bars"),
-              ("2026-08-18", 15, "COIN260904C00147000", "COIN260904C00162500", None, "insufficient_trade_bars"),
-              ("2026-08-18", 20, "COIN260904C00147000", "COIN260904C00167500", None, "insufficient_trade_bars"),
-              ("2026-08-21", 5, "COIN260904C00187500", "COIN260904C00192500", 4.0, "priced"),
-              ("2026-08-21", 10, "COIN260904C00187500", "COIN260904C00197500", None, "insufficient_trade_bars"),
-              ("2026-08-21", 15, "COIN260904C00187500", "COIN260904C00202500", 45.0, "priced"),
-              ("2026-08-21", 20, "COIN260904C00187500", "COIN260904C00207500", None, "insufficient_trade_bars"),
-              ("2026-08-24", 5, "COIN260904C00185000", "COIN260904C00190000", -17.0, "priced"),
-              ("2026-08-24", 10, "COIN260904C00185000", "COIN260904C00195000", None, "insufficient_trade_bars"),
-              ("2026-08-24", 15, "COIN260904C00185000", "COIN260904C00200000", -6.0, "priced"),
-              ("2026-08-24", 20, "COIN260904C00185000", "COIN260904C00205000", None, "insufficient_trade_bars"),
-              ("2026-09-01", 5, "COIN260918C00180000", "COIN260918C00185000", 0.0, "priced"),
-              ("2026-09-01", 10, "COIN260918C00180000", "COIN260918C00190000", 12.0, "priced"),
-              ("2026-09-01", 15, "COIN260918C00180000", "COIN260918C00195000", 19.0, "priced"),
-              ("2026-09-01", 20, "COIN260918C00180000", "COIN260918C00200000", 15.0, "priced"),
-          ]
-          LIVE = {
-              "date": "2026-09-01",
-              "long": "COIN260918C00180000",
-              "short": "COIN260918C00192500",
-              "stored_limit_pnl_dollars": -68.0,
-              "note": "approximate one-contract economics from persisted 5.23 entry debit and 4.55 exit credit; exact fill averages were not persisted",
+          params = {
+              "status": "all",
+              "after": "2026-09-01T13:50:00Z",
+              "until": "2026-09-01T15:05:00Z",
+              "direction": "asc",
+              "nested": "true",
+              "limit": 100,
           }
-          THRESHOLDS = [0, 1, 2, 3, 4, 5, 8, 10]
+          url = "https://paper-api.alpaca.markets/v2/orders?" + urllib.parse.urlencode(params)
+          req = urllib.request.Request(url, headers=headers)
+          with urllib.request.urlopen(req, timeout=30) as response:
+              payload = json.load(response)
+          if not isinstance(payload, list):
+              raise RuntimeError("unexpected Alpaca orders response")
 
-          def utc_dt(day_s, hh, mm):
-              day = date.fromisoformat(day_s)
-              return datetime.combine(day, time(hh, mm), tzinfo=ET).astimezone(UTC)
-
-          def fetch_bars(symbols, day_s):
-              merged = defaultdict(list)
-              symbols = sorted(set(symbols))
-              for offset in range(0, len(symbols), 100):
-                  chunk = symbols[offset:offset+100]
-                  token = None
-                  while True:
-                      params = {
-                          "symbols": ",".join(chunk),
-                          "timeframe": "1Min",
-                          # At a 09:55 decision the Basic indicative trade feed is 15m delayed,
-                          # so only observations timestamped through 09:40 are treated as knowable.
-                          "start": utc_dt(day_s, 9, 10).isoformat().replace("+00:00", "Z"),
-                          "end": utc_dt(day_s, 9, 41).isoformat().replace("+00:00", "Z"),
-                          "limit": 10000,
-                          "sort": "asc",
+          sanitized = []
+          for order in payload:
+              legs = order.get("legs") or []
+              symbols = [str(leg.get("symbol") or "") for leg in legs]
+              if order.get("order_class") != "mleg":
+                  continue
+              if not symbols or not all(symbol.startswith("COIN") for symbol in symbols):
+                  continue
+              sanitized.append({
+                  "order_class": order.get("order_class"),
+                  "status": order.get("status"),
+                  "side": order.get("side"),
+                  "type": order.get("type"),
+                  "limit_price": order.get("limit_price"),
+                  "filled_avg_price": order.get("filled_avg_price"),
+                  "filled_qty": order.get("filled_qty"),
+                  "submitted_at": order.get("submitted_at"),
+                  "filled_at": order.get("filled_at"),
+                  "legs": [
+                      {
+                          "symbol": leg.get("symbol"),
+                          "side": leg.get("side"),
+                          "position_intent": leg.get("position_intent"),
+                          "filled_avg_price": leg.get("filled_avg_price"),
+                          "filled_qty": leg.get("filled_qty"),
                       }
-                      if token:
-                          params["page_token"] = token
-                      url = BASE + "/v1beta1/options/bars?" + urllib.parse.urlencode(params)
-                      req = urllib.request.Request(url, headers=HEADERS)
-                      with urllib.request.urlopen(req, timeout=30) as response:
-                          payload = json.load(response)
-                      raw = payload.get("bars", {})
-                      if isinstance(raw, dict):
-                          for symbol, bars in raw.items():
-                              merged[symbol].extend(bars)
-                      token = payload.get("next_page_token")
-                      if not token:
-                          break
-              return dict(merged)
-
-          per_day_symbols = defaultdict(set)
-          for day_s, _, long_symbol, short_symbol, _, _ in ROWS:
-              per_day_symbols[day_s].update((long_symbol, short_symbol))
-          per_day_symbols[LIVE["date"]].update((LIVE["long"], LIVE["short"]))
-
-          bars_by_day = {}
-          for day_s, symbols in sorted(per_day_symbols.items()):
-              bars_by_day[day_s] = fetch_bars(symbols, day_s)
-
-          detailed = []
-          for day_s, width, long_symbol, short_symbol, pnl, status in ROWS:
-              day_bars = bars_by_day[day_s]
-              long_count = len(day_bars.get(long_symbol, []))
-              short_count = len(day_bars.get(short_symbol, []))
-              detailed.append({
-                  "date": day_s,
-                  "width_target": width,
-                  "long_symbol": long_symbol,
-                  "short_symbol": short_symbol,
-                  "proxy_pnl_dollars": pnl,
-                  "proxy_status": status,
-                  "long_active_minutes_0910_0940": long_count,
-                  "short_active_minutes_0910_0940": short_count,
-                  "min_leg_active_minutes_0910_0940": min(long_count, short_count),
-              })
-
-          live_long_count = len(bars_by_day[LIVE["date"]].get(LIVE["long"], []))
-          live_short_count = len(bars_by_day[LIVE["date"]].get(LIVE["short"], []))
-          live_activity = {
-              **LIVE,
-              "long_active_minutes_0910_0940": live_long_count,
-              "short_active_minutes_0910_0940": live_short_count,
-              "min_leg_active_minutes_0910_0940": min(live_long_count, live_short_count),
-          }
-
-          priced = [row for row in detailed if row["proxy_pnl_dollars"] is not None]
-          sweep = []
-          for threshold in THRESHOLDS:
-              retained = [row for row in priced if row["min_leg_active_minutes_0910_0940"] >= threshold]
-              rejected = [row for row in priced if row["min_leg_active_minutes_0910_0940"] < threshold]
-              pnls = [row["proxy_pnl_dollars"] for row in retained]
-              winners = [p for p in pnls if p > 0]
-              losers = [p for p in pnls if p < 0]
-              sweep.append({
-                  "min_active_minutes_each_leg": threshold,
-                  "retained_priced": len(retained),
-                  "rejected_priced": len(rejected),
-                  "retained_proxy_pnl_sum_dollars": round(sum(pnls), 2),
-                  "retained_proxy_pnl_mean_dollars": round(sum(pnls) / len(pnls), 4) if pnls else None,
-                  "retained_hit_rate": round(len(winners) / len(pnls), 6) if pnls else None,
-                  "retained_losses": len(losers),
-                  "retained_wins": len(winners),
-                  "sep1_live_exact_spread_would_pass": live_activity["min_leg_active_minutes_0910_0940"] >= threshold,
-                  "rejected_rows": [
-                      {"date": row["date"], "width_target": row["width_target"], "proxy_pnl_dollars": row["proxy_pnl_dollars"]}
-                      for row in rejected
+                      for leg in legs
                   ],
               })
 
           result = {
-              "study": "delayed-safe pre-entry option activity gate sweep",
-              "decision_time": "09:55 ET",
-              "activity_window": "09:10-09:40 ET",
-              "why_window_is_safe": "For Alpaca Basic indicative option trades, a 15-minute delayed feed means timestamps through 09:40 are available by the 09:55 decision. No post-09:40 activity enters the gate.",
-              "safety": "read-only historical option bars only; no trading endpoint or account mutation",
-              "interpretation_limits": [
-                  "The control-set P&L labels are historical trade-bar proxies, not executable-fill claims.",
-                  "The Sep 1 live row is evaluated only for gate pass/fail; its approximate stored-limit loss is not pooled into the proxy P&L aggregates.",
-                  "This sweep is diagnostic. A threshold is not promoted merely because it removes a recent loser.",
-              ],
-              "live_sep1": live_activity,
-              "rows": detailed,
-              "sweep": sweep,
+              "study": "Sep 1 exact competition order fill prices",
+              "safety": "GET /v2/orders only; output omits account IDs, order IDs and client order IDs",
+              "orders": sanitized,
           }
-          Path("artifacts/diagnostic/activity-gate-sweep.json").write_text(
+          Path("artifacts/diagnostic/sep1-order-fills.json").write_text(
               json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
           )
-          print(json.dumps({"live_sep1": live_activity, "sweep": sweep, "rows": detailed}, indent=2, sort_keys=True))
+          print(json.dumps(result, indent=2, sort_keys=True))
           PY
 
       - name: Upload sanitized diagnostic
         uses: actions/upload-artifact@v4
         with:
-          name: recent-regime-activity-gate
-          path: artifacts/diagnostic/activity-gate-sweep.json
+          name: recent-regime-order-fills
+          path: artifacts/diagnostic/sep1-order-fills.json
           if-no-files-found: error
           retention-days: 3
