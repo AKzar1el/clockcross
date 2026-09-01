@@ -10,6 +10,14 @@ from clockcross.research.residual import rolling_beta
 
 ET = ZoneInfo("America/New_York")
 UTC = ZoneInfo("UTC")
+_FORWARD_TIMES = {
+    15: time(10, 10),
+    30: time(10, 25),
+    45: time(10, 40),
+    60: time(10, 55),
+    90: time(11, 25),
+    120: time(11, 55),
+}
 
 
 def _utc(session_date: date, wall_time: time) -> pd.Timestamp:
@@ -76,17 +84,25 @@ def _session_raw_row(
     open_start = _utc(session_date, time(9, 30))
     confirmation_end = _utc(session_date, time(9, 40))
     decision = _utc(session_date, time(9, 55))
-    forward_30 = _utc(session_date, time(10, 25))
-    forward_60 = _utc(session_date, time(10, 55))
 
     open_price = _value_at(equity, open_start, "open")
     confirmation_price = _value_at(equity, confirmation_end, "open")
     decision_price = _value_at(equity, decision, "open")
-    price_30 = _value_at(equity, forward_30, "open")
-    price_60 = _value_at(equity, forward_60, "open")
+    forward_prices = {
+        minutes: _value_at(equity, _utc(session_date, wall_time), "open")
+        for minutes, wall_time in _FORWARD_TIMES.items()
+    }
 
     btc_return = btc_end / btc_start - 1.0
     equity_premarket_return = premarket_price / prior_close - 1.0
+    forward_returns = {
+        f"forward_{minutes}m_return": (
+            None
+            if decision_price is None or price is None or decision_price <= 0
+            else price / decision_price - 1.0
+        )
+        for minutes, price in forward_prices.items()
+    }
 
     return {
         "session_date": session_date,
@@ -97,12 +113,7 @@ def _session_raw_row(
         "open_10m_return": None
         if open_price is None or confirmation_price is None or open_price <= 0
         else confirmation_price / open_price - 1.0,
-        "forward_30m_return": None
-        if decision_price is None or price_30 is None or decision_price <= 0
-        else price_30 / decision_price - 1.0,
-        "forward_60m_return": None
-        if decision_price is None or price_60 is None or decision_price <= 0
-        else price_60 / decision_price - 1.0,
+        **forward_returns,
     }
 
 
