@@ -71,14 +71,18 @@ jobs:
               stock_feed=settings.historical_stock_feed,
           )
 
-          start = date(2025, 1, 2)
+          history_start = date(2024, 10, 1)
+          research_start = date(2025, 1, 2)
           research_end = date(2026, 8, 28)
           external_day = date(2026, 9, 1)
-          begin = datetime.combine(start, time.min, tzinfo=timezone.utc)
+          begin = datetime.combine(history_start, time.min, tzinfo=timezone.utc)
           finish = datetime(2026, 9, 1, 16, 0, tzinfo=timezone.utc)
           btc = gateway.fetch_crypto_minutes("BTC/USD", begin, finish)
           coin = gateway.fetch_stock_minutes("COIN", begin, finish)
-          sessions = [ts.date() for ts in pd.date_range(start=start, end=external_day, freq="B")]
+          sessions = [
+              ts.date()
+              for ts in pd.date_range(start=history_start, end=external_day, freq="B")
+          ]
           frame = build_episode_frame(
               btc,
               coin,
@@ -86,7 +90,10 @@ jobs:
               beta_lookback=40,
           )
 
-          promotion_frame = frame.loc[frame["session_date"] <= research_end].copy()
+          promotion_frame = frame.loc[
+              (frame["session_date"] >= research_start)
+              & (frame["session_date"] <= research_end)
+          ].copy()
           study = evaluate_frozen_horizon_sensitivity(
               promotion_frame,
               bootstrap_samples=20_000,
@@ -108,6 +115,7 @@ jobs:
               }
               external = {
                   "session_date": external_day.isoformat(),
+                  "training_count": int(row["training_count"]),
                   "residual": residual,
                   "opening_10m_return": float(row["open_10m_return"]),
                   "underlying_returns": raw_returns,
@@ -119,6 +127,8 @@ jobs:
               }
 
           payload = {
+              "history_start": history_start.isoformat(),
+              "research_sample_start": research_start.isoformat(),
               "research_sample_end": research_end.isoformat(),
               "historical_stock_feed": settings.historical_stock_feed,
               "study": study,
