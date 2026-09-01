@@ -65,7 +65,7 @@ def _summary(values: np.ndarray) -> dict[str, float | int | None]:
 def _signed_returns(frame: pd.DataFrame) -> np.ndarray:
     residual = frame["residual"].to_numpy(dtype=float)
     forward = frame["forward_60m_return"].to_numpy(dtype=float)
-    return np.sign(residual) * forward
+    return np.asarray(np.sign(residual) * forward, dtype=float)
 
 
 def _yearly_summary(frame: pd.DataFrame) -> dict[str, dict[str, float | int | None]]:
@@ -147,7 +147,10 @@ def evaluate_threshold_boundary_robustness(
         selected_dates = set(selected["session_date"].tolist())
         baseline_overlap = len(selected_dates.intersection(baseline_dates))
         baseline_count = len(baseline_dates)
-        selected_count = int(summary["count"])
+        count_value = summary["count"]
+        if not isinstance(count_value, int):
+            raise TypeError("threshold count must be an integer")
+        selected_count = count_value
         threshold_results[_threshold_key(threshold)] = {
             **summary,
             "yearly": _yearly_summary(selected),
