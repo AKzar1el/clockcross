@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from clockcross.alpaca.mcp import (
     AlpacaMcpGateway,
+    DefaultAlpacaMcpRunner,
     McpContextRequest,
     McpToolRequest,
     sanitize_arguments,
@@ -70,3 +71,16 @@ def test_gateway_rejects_trading_tools_before_runner():
     assert called is False
     assert evidence.items[0].success is False
     assert evidence.items[0].error_code == "tool_not_allowed"
+
+
+def test_default_mcp_runner_pins_compatible_alpaca_and_fastmcp_versions():
+    runner = DefaultAlpacaMcpRunner(api_key="key", secret_key="secret")
+
+    assert runner._command == "uvx"
+    assert runner._args == (
+        "--with",
+        "fastmcp==3.4.7",
+        "--from",
+        "alpaca-mcp-server==2.2.0",
+        "alpaca-mcp-server",
+    )
