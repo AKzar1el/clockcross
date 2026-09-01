@@ -68,7 +68,7 @@ The AI endpoint is a small authenticated Cloudflare Worker at `clockcross-ai-gat
 
 Alpaca MCP is **read-only inside ClockCross**: trading toolsets are disabled. Atomic multi-leg execution uses Alpaca's Trading REST API because deterministic request validation and `client_order_id` reconciliation are easier to audit there.
 
-## Live preflight evidence
+## Verified external evidence
 
 A full encrypted cloud preflight on **2026-08-30** passed all five external surfaces against the development paper account:
 
@@ -79,6 +79,8 @@ A full encrypted cloud preflight on **2026-08-30** passed all five external surf
 - the deployed AI gateway returned a schema-valid bounded decision.
 
 The preflight is read-only: it does not create a ledger episode or instantiate the order-execution path.
+
+On **2026-09-01**, the competition workflow completed its first real autonomous paper episode on the dedicated competition account. External preflight passed, the opening MLeg filled, the deterministic research-horizon close filled on its first close attempt, and the persisted episode finished `CLOSED` with reason `research_horizon_exit_filled`.
 
 ## Risk and execution
 
@@ -95,7 +97,11 @@ The MVP permits only:
 
 Live option eligibility is based only on fields the Alpaca snapshot path actually supplies and records: fresh positive/non-crossed bid/ask quotes, relative spread quality, available delta, valid vertical economics, buying power, and deterministic max-loss gates. ClockCross does not claim to enforce open-interest or volume thresholds that are absent from the normalized live snapshot.
 
-Default risk caps are **1% of starting equity per position** and **5% aggregate defined loss**. Competition entries must begin inside the frozen 09:55–10:05 ET entry window. An accepted opening MLeg gets a fixed 180-second fill window; an unfilled order is canceled only after cancellation can be proven. A filled spread is managed to the **10:55 ET** exit boundary because the frozen research target is the 60-minute return from the 09:55 decision. The close reuses the exact opening contracts with `sell_to_close` / `buy_to_close`, deterministic client IDs, and at most one deterministic replacement attempt.
+Spread construction is directional but deterministic. The long leg must have approximately **0.45–0.65 absolute delta**. ClockCross evaluates all quote-eligible farther-OTM shorts at the same expiration, requires at least **0.30 absolute net directional delta**, rejects any debit outside the existing risk-derived one-contract budget, then ranks the remaining verticals by net directional delta per debit with deterministic tie-breakers. If no structure provides meaningful directional exposure inside the existing envelope, it abstains. The ledger records long delta, short delta, net delta, net debit, and delta-per-debit for every selected candidate.
+
+Default risk caps remain **1% of starting equity per position** and **5% aggregate defined loss**. Competition entries must begin inside the frozen 09:55–10:05 ET entry window. An accepted opening MLeg gets a fixed 180-second fill window; an unfilled order is canceled only after cancellation can be proven. A filled spread is managed to the **10:55 ET** exit boundary because the frozen research target is the 60-minute return from the 09:55 decision. The close reuses the exact opening contracts with `sell_to_close` / `buy_to_close`, deterministic client IDs, and at most one deterministic replacement attempt.
+
+The Basic options feed remains a known execution-information limitation: ClockCross selects from Alpaca's `indicative` option snapshots, while paper execution can be evaluated against the current market/NBBO. The constructor therefore treats indicative quote/Greek data as a bounded selection input rather than as a claim of OPRA-quality execution data; the risk limits and fail-closed rules do not assume OPRA access.
 
 Every irreversible order has a deterministic client order ID. A timeout triggers reconciliation by that ID; if the outcome cannot be proven, ClockCross does not blindly re-submit. An unresolved prior COIN lifecycle blocks a new competition episode.
 
@@ -148,15 +154,15 @@ CLOCKCROSS_ALLOW_DEV_ORDER=false
 The complete competition lifecycle is:
 
 ```bash
-uv run clockcross competition-session --date 2026-08-31
+uv run clockcross competition-session --date YYYY-MM-DD
 ```
 
-The checked-in `.github/workflows/competition-runtime.yml` is the event-bounded launcher once it is on the default branch and the `competition` GitHub environment contains the three required encrypted secrets. It runs at 09:57 America/New_York on Aug 31 and Sep 1–4, restores the prior SQLite state artifact, performs read-only preflight first, and then executes `competition-session`.
+The checked-in `.github/workflows/competition-runtime.yml` is the event-bounded launcher on `main`. Automatic cron scheduling was removed after unreliable delayed/dropped GitHub scheduled runs. The canonical trigger is now a path-scoped push changing `ops/competition-run-now`; `workflow_dispatch` is the recovery path. The workflow still rejects dates outside Aug 31 and Sep 1–4, restores prior SQLite state, performs read-only preflight first, and then executes `competition-session`. ClockCross itself remains the final time authority and refuses new entries after 10:05 ET.
 
 Crash recovery is intentionally separate and cannot compute or submit a new signal:
 
 ```bash
-uv run clockcross reconcile --date 2026-08-31
+uv run clockcross reconcile --date YYYY-MM-DD
 ```
 
 Read-only evidence console:
@@ -175,7 +181,7 @@ uv run ruff check .
 uv run mypy src/clockcross
 ```
 
-The suite covers leakage boundaries, option-chain normalization, AI fail-closed behavior, Cloudflare gateway contract constraints, risk caps, state-machine legality, SQLite idempotency, opening/closing order uncertainty, exact-contract exits, competition timing, restart-safe lifecycle recovery, workflow secret isolation, public API redaction, live-signal freezing, account-role safeguards, read-only external preflight, and repository secret scanning.
+The suite covers leakage boundaries, option-chain normalization, directional spread selection, minimum net-delta abstention, risk-derived constructor budgets, AI fail-closed behavior, Cloudflare gateway contract constraints, risk caps, state-machine legality, SQLite idempotency, opening/closing order uncertainty, exact-contract exits, competition timing, restart-safe lifecycle recovery, workflow secret isolation, public API redaction, live-signal freezing, account-role safeguards, read-only external preflight, and repository secret scanning.
 
 ## Project documents
 
