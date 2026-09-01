@@ -1,0 +1,272 @@
+name: Monthly Backtest Ephemeral
+
+on:
+  push:
+    branches:
+      - research/monthly-end-to-end-backtest
+    paths:
+      - ".github/workflows/monthly-backtest-ephemeral.yml"
+
+permissions:
+  contents: read
+
+env:
+  ALPACA_API_KEY: ${{ secrets.ALPACA_COMPETITION_API_KEY }}
+  ALPACA_SECRET_KEY: ${{ secrets.ALPACA_COMPETITION_SECRET_KEY }}
+  LLM_API_KEY: ${{ secrets.CLOCKCROSS_AI_GATEWAY_BEARER }}
+  LLM_BASE_URL: https://clockcross-ai-gateway.tomi-seregi99.workers.dev/v1
+  LLM_MODEL: clockcross-cloudflare-llama-3.3-70b
+  CLOCKCROSS_ACCOUNT_ROLE: competition
+  CLOCKCROSS_ALLOW_DEV_ORDER: "false"
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: competition
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --extra dev
+      - name: Run chronological daily replay
+        shell: bash
+        run: |
+          mkdir -p artifacts/monthly-backtest
+          uv run python - <<'PY'
+          import json
+          from datetime import date, datetime, time, timedelta
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          import httpx
+          import numpy as np
+          import pandas as pd
+
+          from clockcross.agent.adjudicator import Adjudicator, AgentContext
+          from clockcross.alpaca.historical import AlpacaRestHistoryClient, HistoricalDataGateway
+          from clockcross.config import Settings
+          from clockcross.live_signal import LiveCoinSignalGateway, LiveSignalPolicy
+          from clockcross.trading.constructor import direction_from_agent
+
+          ET = ZoneInfo("America/New_York")
+          UTC = ZoneInfo("UTC")
+          START = date(2026, 8, 3)
+          END = date(2026, 9, 1)
+          HISTORY_START = date(2026, 4, 1)
+
+          settings = Settings()
+          rest = AlpacaRestHistoryClient(
+              settings.alpaca_api_key,
+              settings.alpaca_secret_key,
+              base_url=str(settings.alpaca_data_base_url),
+          )
+          gateway = HistoricalDataGateway(
+              stock_fetcher=lambda symbol, begin, finish: rest.fetch_stock_bars(
+                  symbol, begin, finish, feed=settings.historical_stock_feed
+              ),
+              crypto_fetcher=lambda symbol, begin, finish: rest.fetch_crypto_bars(
+                  symbol, begin, finish
+              ),
+              cache_root=None,
+              stock_feed=settings.historical_stock_feed,
+          )
+
+          begin = datetime.combine(HISTORY_START, time.min, tzinfo=ET).astimezone(UTC)
+          finish = datetime.combine(END, time(12, 0), tzinfo=ET).astimezone(UTC)
+          btc = gateway.fetch_crypto_minutes("BTC/USD", begin, finish)
+          coin = gateway.fetch_stock_minutes("COIN", begin, finish)
+
+          class MemoryHistory:
+              @staticmethod
+              def _slice(frame, start, end):
+                  return frame.loc[(frame.index >= pd.Timestamp(start)) & (frame.index <= pd.Timestamp(end))].copy()
+              def fetch_crypto_minutes(self, symbol, start, end):
+                  assert symbol == "BTC/USD"
+                  return self._slice(btc, start, end)
+              def fetch_stock_minutes(self, symbol, start, end):
+                  assert symbol == "COIN"
+                  return self._slice(coin, start, end)
+
+          policy_payload = json.loads(Path("docs/research/2026-08-29-live-signal-policy.json").read_text())
+          policy = LiveSignalPolicy.model_validate(policy_payload)
+          signal = LiveCoinSignalGateway(history=MemoryHistory(), policy=policy, history_days=120)
+          ai = Adjudicator(
+              base_url=str(settings.llm_base_url),
+              api_key=settings.llm_api_key or "",
+              model=settings.llm_model or "clockcross-cloudflare-llama-3.3-70b",
+              timeout_seconds=30.0,
+          )
+
+          headers = {
+              "APCA-API-KEY-ID": settings.alpaca_api_key,
+              "APCA-API-SECRET-KEY": settings.alpaca_secret_key,
+          }
+          news_http = httpx.Client(timeout=30.0)
+
+          def ts(day, hour, minute):
+              return pd.Timestamp(datetime.combine(day, time(hour, minute), tzinfo=ET).astimezone(UTC))
+
+          def px(frame, when):
+              if when not in frame.index:
+                  return None
+              value = frame.loc[when, "open"]
+              if isinstance(value, pd.Series):
+                  return None
+              return float(value)
+
+          def historical_news(day):
+              start = datetime.combine(day, time(0, 0), tzinfo=ET).astimezone(UTC)
+              end = datetime.combine(day, time(9, 55), tzinfo=ET).astimezone(UTC)
+              response = news_http.get(
+                  "https://data.alpaca.markets/v1beta1/news",
+                  params={
+                      "symbols": "COIN",
+                      "start": start.isoformat().replace("+00:00", "Z"),
+                      "end": end.isoformat().replace("+00:00", "Z"),
+                      "sort": "desc",
+                      "limit": 10,
+                      "include_content": "false",
+                  },
+                  headers=headers,
+              )
+              response.raise_for_status()
+              articles = response.json().get("news", [])
+              compact = []
+              for item in articles[:10]:
+                  compact.append({
+                      "headline": item.get("headline"),
+                      "summary": item.get("summary"),
+                      "source": item.get("source"),
+                      "created_at": item.get("created_at"),
+                  })
+              return compact
+
+          all_days = [d.date() for d in pd.date_range(START, END, freq="B")]
+          rows = []
+          prior_signal_returns = []
+
+          for day in all_days:
+              features = signal.collect_premarket(day)
+              if features is None:
+                  rows.append({"date": day.isoformat(), "status": "features_unavailable"})
+                  continue
+              features = signal.opening_confirmation(features)
+              if features is None:
+                  rows.append({"date": day.isoformat(), "status": "opening_confirmation_unavailable"})
+                  continue
+              evidence = signal.evaluate(features)
+              entry = px(coin, ts(day, 9, 55))
+              exit_ = px(coin, ts(day, 10, 55))
+              forward = None if entry is None or exit_ is None or entry <= 0 else exit_ / entry - 1.0
+              base = {
+                  "date": day.isoformat(),
+                  "residual": features.residual,
+                  "residual_abs": abs(features.residual),
+                  "residual_z": evidence.residual_z,
+                  "btc_return": features.btc_return,
+                  "coin_premarket_return": features.equity_premarket_return,
+                  "opening_10m_return": features.opening_10m_return,
+                  "coin_60m_return": forward,
+                  "signal_pass": evidence.approved,
+              }
+              if not evidence.approved:
+                  rows.append({**base, "status": "abstain_threshold", "ai_action": None, "direction": None, "directional_60m_return": 0.0})
+                  continue
+              if forward is None:
+                  rows.append({**base, "status": "outcome_unavailable"})
+                  continue
+
+              residual_sign = 1 if features.residual > 0 else -1
+              continuation_direction = "bullish" if residual_sign > 0 else "bearish"
+              continuation_return = forward if continuation_direction == "bullish" else -forward
+              historical_mean = float(np.mean(prior_signal_returns)) if prior_signal_returns else None
+              news = historical_news(day)
+              context = AgentContext(
+                  underlying="COIN",
+                  residual=features.residual,
+                  residual_z=evidence.residual_z,
+                  residual_sign=residual_sign,
+                  btc_return=features.btc_return,
+                  opening_10m_return=features.opening_10m_return,
+                  historical_mean_signed_return=historical_mean,
+                  option_feed="indicative",
+                  available_structures=("call_debit_spread", "put_debit_spread"),
+                  news_summary=json.dumps(news, sort_keys=True, default=str, separators=(",", ":"))[:1600],
+              )
+              decision = ai.decide(context)
+              direction = direction_from_agent(decision.action, residual_sign)
+              directional_return = 0.0
+              if direction == "bullish":
+                  directional_return = forward
+              elif direction == "bearish":
+                  directional_return = -forward
+
+              rows.append({
+                  **base,
+                  "status": "ai_abstain" if direction is None else "trade",
+                  "news_count": len(news),
+                  "historical_mean_prior_signals": historical_mean,
+                  "ai_action": decision.action.value,
+                  "ai_confidence": decision.confidence,
+                  "ai_driver": decision.driver.value,
+                  "idiosyncratic_news_detected": decision.idiosyncratic_news_detected,
+                  "ai_reason": decision.reason,
+                  "direction": direction,
+                  "continuation_direction": continuation_direction,
+                  "continuation_60m_return": continuation_return,
+                  "directional_60m_return": directional_return,
+              })
+              prior_signal_returns.append(continuation_return)
+
+          trades = [r for r in rows if r.get("status") == "trade"]
+          signals = [r for r in rows if r.get("signal_pass") is True]
+          ai_returns = [float(r["directional_60m_return"]) for r in trades]
+          cont_returns = [float(r["continuation_60m_return"]) for r in signals if r.get("continuation_60m_return") is not None]
+
+          def stats(values):
+              if not values:
+                  return {"count": 0, "mean": None, "median": None, "hit_rate": None, "sum": 0.0}
+              arr = np.asarray(values, dtype=float)
+              return {
+                  "count": int(arr.size),
+                  "mean": float(arr.mean()),
+                  "median": float(np.median(arr)),
+                  "hit_rate": float((arr > 0).mean()),
+                  "sum": float(arr.sum()),
+                  "wins": int((arr > 0).sum()),
+                  "losses": int((arr < 0).sum()),
+              }
+
+          payload = {
+              "study": "chronological_daily_final_strategy_replay",
+              "window": {"start": START.isoformat(), "end": END.isoformat()},
+              "historical_stock_feed": settings.historical_stock_feed,
+              "option_feed_assumption_for_ai_context": "indicative; structures assumed available for AI-only replay",
+              "no_future_news": True,
+              "lookahead_control": "beta/residual and rolling historical mean use only prior sessions; Sep 1 is included as the final chronological day, not used to tune earlier days",
+              "limitations": [
+                  "Historical option snapshot Greeks/bid-ask surfaces are not available at arbitrary past 09:55 timestamps through Alpaca snapshots; this first layer is exact for signal timing and underlying outcome, and replays the current AI with timestamp-capped historical news.",
+                  "Option feasibility is not used to remove signal days in this layer; both debit-spread structures are exposed to the AI context. A separate historical option-price reconstruction is required for spread P&L.",
+                  "AI calls use the current deployed model/prompt, so they reproduce current policy behavior on historical bounded context, not the exact provider state that existed on the historical date.",
+              ],
+              "trading_day_count": len(rows),
+              "signal_day_count": len(signals),
+              "trade_day_count": len(trades),
+              "ai_abstain_count": sum(1 for r in rows if r.get("status") == "ai_abstain"),
+              "threshold_abstain_count": sum(1 for r in rows if r.get("status") == "abstain_threshold"),
+              "continuation_stats": stats(cont_returns),
+              "ai_direction_stats": stats(ai_returns),
+              "rows": rows,
+          }
+          output = Path("artifacts/monthly-backtest/monthly-strategy-replay.json")
+          output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+          print(json.dumps(payload, indent=2, sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: monthly-strategy-replay
+          path: artifacts/monthly-backtest/monthly-strategy-replay.json
+          if-no-files-found: error
+          retention-days: 5
