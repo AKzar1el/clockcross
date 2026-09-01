@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import date, datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, Callable, Literal, Protocol
 
@@ -20,7 +21,11 @@ from clockcross.domain import (
     SpreadCandidate,
 )
 from clockcross.ledger import Ledger
-from clockcross.trading.constructor import construct_vertical, direction_from_agent
+from clockcross.trading.constructor import (
+    ConstructionPolicy,
+    construct_vertical,
+    direction_from_agent,
+)
 from clockcross.trading.execution import ExecutionResult, IndeterminateOrderError
 
 RunMode = Literal["dry-run", "paper"]
@@ -121,6 +126,7 @@ class PortfolioGateway(Protocol):
 
 
 class RiskGateway(Protocol):
+    def max_candidate_net_debit(self, portfolio: Any) -> Decimal: ...
     def evaluate(
         self, candidate: SpreadCandidate, portfolio: Any, *, now: datetime
     ) -> RiskDecision: ...
@@ -345,11 +351,34 @@ class Scheduler:
         direction = direction_from_agent(decision.action, context.residual_sign)
         if direction is None:
             return self._abstain(episode.episode_id, "no_direction")
-        candidate = construct_vertical(chain, direction=direction, now=now)
+
+        portfolio = self._portfolio.current()
+        max_net_debit = self._risk.max_candidate_net_debit(portfolio)
+        if max_net_debit <= 0:
+            return self._abstain(episode.episode_id, "risk_budget_exhausted")
+        candidate = construct_vertical(
+            chain,
+            direction=direction,
+            now=now,
+            policy=ConstructionPolicy(max_net_debit=max_net_debit),
+        )
         if candidate is None:
             return self._abstain(episode.episode_id, "no_constructible_vertical")
 
-        portfolio = self._portfolio.current()
+        exposure_keys = (
+            "long_delta",
+            "short_delta",
+            "net_delta",
+            "net_debit",
+            "delta_per_debit",
+        )
+        self._ledger.record_mark(
+            episode.episode_id,
+            marked_at=now,
+            value="spread_candidate",
+            payload={key: candidate.metadata[key] for key in exposure_keys},
+        )
+
         risk = self._risk.evaluate(candidate, portfolio, now=now)
         self._ledger.record_risk(episode.episode_id, risk)
         if not risk.approved:
