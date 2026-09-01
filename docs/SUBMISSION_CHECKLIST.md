@@ -88,7 +88,7 @@ Software readiness and external-market proof are deliberately separate. Do not m
 - [x] 2026-09-01 `competition-session` completed with opening MLeg `filled`, closing MLeg `filled`, and terminal state `CLOSED`.
 - [x] No unresolved opening/closing order remained after the 2026-09-01 episode.
 - [x] No undocumented manual trade-selection intervention occurred in the 2026-09-01 autonomous episode.
-- [ ] Post-episode directional spread-constructor correction merged to `main` with full CI green.
+- [x] Post-episode directional spread-constructor correction merged to `main` with full CI green.
 - [ ] Final-day account state and P&L/equity captured before deadline.
 - [ ] Video presentation completed.
 - [ ] Slide presentation completed.
