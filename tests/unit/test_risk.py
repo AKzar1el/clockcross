@@ -40,6 +40,30 @@ def test_approves_candidate_inside_envelope():
     assert result.max_loss == Decimal("250")
 
 
+def test_exposes_constructor_debit_budget_from_existing_risk_envelope():
+    governor = RiskGovernor()
+    assert governor.max_candidate_net_debit(portfolio()) == Decimal("10")
+    assert governor.max_candidate_net_debit(
+        portfolio(aggregate_defined_loss=Decimal("4800"))
+    ) == Decimal("2")
+    assert governor.max_candidate_net_debit(
+        portfolio(buying_power=Decimal("150"))
+    ) == Decimal("1.5")
+    assert governor.max_candidate_net_debit(
+        portfolio(aggregate_defined_loss=Decimal("5000"))
+    ) == Decimal("0")
+
+
+def test_constructor_budget_respects_non_default_risk_fractions():
+    governor = RiskGovernor(
+        RiskPolicy(
+            per_position_loss_fraction=Decimal("0.005"),
+            aggregate_loss_fraction=Decimal("0.02"),
+        )
+    )
+    assert governor.max_candidate_net_debit(portfolio()) == Decimal("5")
+
+
 def test_rejects_non_coin_and_duplicate_underlying():
     wrong = RiskGovernor().evaluate(candidate(underlying="MSTR"), portfolio(), now=NOW)
     duplicate = RiskGovernor().evaluate(candidate(), portfolio(open_underlyings=("COIN",)), now=NOW)
