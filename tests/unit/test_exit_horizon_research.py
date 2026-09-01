@@ -58,6 +58,7 @@ def test_episode_builder_materializes_predeclared_exit_horizons_from_0955() -> N
     assert row["forward_60m_return"] == pytest.approx(0.04)
     assert row["forward_90m_return"] == pytest.approx(0.05)
     assert row["forward_120m_return"] == pytest.approx(0.06)
+    assert row["training_count"] == 0
 
 
 def _study_frame(*, outlier: bool = False) -> pd.DataFrame:
@@ -81,6 +82,7 @@ def _study_frame(*, outlier: bool = False) -> pd.DataFrame:
     payload = {
         "session_date": sessions,
         "residual": residuals,
+        "training_count": [40] * 6,
         "forward_15m_return": raw_returns([0.008] * 6),
         "forward_30m_return": raw_returns(signed_30),
         "forward_45m_return": raw_returns([0.009] * 6),
@@ -129,3 +131,13 @@ def test_horizon_study_uses_one_common_complete_episode_sample() -> None:
 
     assert result["episode_count"] == 5
     assert all(item["count"] == 5 for item in result["horizons"].values())
+
+
+def test_horizon_study_requires_full_beta40_history() -> None:
+    frame = _study_frame()
+    frame.loc[0, "training_count"] = 39
+
+    result = _evaluate(frame)
+
+    assert result["episode_count"] == 5
+    assert result["minimum_training_count"] == 40
