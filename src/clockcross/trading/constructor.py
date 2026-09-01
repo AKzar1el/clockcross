@@ -185,6 +185,8 @@ def construct_vertical(
     _, long_leg, short_leg, raw_debit, net_delta, delta_per_debit = min(
         pairs, key=lambda item: item[0]
     )
+    assert long_leg.delta is not None
+    assert short_leg.delta is not None
 
     debit = raw_debit.quantize(_CENTS, rounding=ROUND_HALF_UP)
     max_loss = (debit * _CONTRACT_MULTIPLIER).quantize(_CENTS, rounding=ROUND_HALF_UP)
