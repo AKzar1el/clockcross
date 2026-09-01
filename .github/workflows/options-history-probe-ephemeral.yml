@@ -1,0 +1,114 @@
+name: Options History Probe Ephemeral
+
+on:
+  push:
+    branches:
+      - research/monthly-end-to-end-backtest
+    paths:
+      - ".github/workflows/options-history-probe-ephemeral.yml"
+
+permissions:
+  contents: read
+
+env:
+  ALPACA_API_KEY: ${{ secrets.ALPACA_COMPETITION_API_KEY }}
+  ALPACA_SECRET_KEY: ${{ secrets.ALPACA_COMPETITION_SECRET_KEY }}
+  CLOCKCROSS_ACCOUNT_ROLE: competition
+  CLOCKCROSS_ALLOW_DEV_ORDER: "false"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: competition
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --extra dev
+      - name: Probe inactive contracts and historical option bars
+        shell: bash
+        run: |
+          uv run python - <<'PY'
+          import json
+          from datetime import date, datetime, time
+          from zoneinfo import ZoneInfo
+          import httpx
+          from clockcross.config import Settings
+          from clockcross.alpaca.historical import AlpacaRestHistoryClient
+
+          ET = ZoneInfo("America/New_York")
+          UTC = ZoneInfo("UTC")
+          settings = Settings()
+          headers = {
+              "APCA-API-KEY-ID": settings.alpaca_api_key,
+              "APCA-API-SECRET-KEY": settings.alpaca_secret_key,
+          }
+          client = httpx.Client(timeout=30.0)
+          day = date(2026, 8, 25)
+          rest = AlpacaRestHistoryClient(settings.alpaca_api_key, settings.alpaca_secret_key)
+          bars = rest.fetch_stock_bars(
+              "COIN",
+              datetime.combine(day, time(9, 50), tzinfo=ET).astimezone(UTC),
+              datetime.combine(day, time(10, 0), tzinfo=ET).astimezone(UTC),
+              feed="sip",
+          )
+          spot = next(float(row["open"]) for row in bars if str(row["timestamp"]).startswith("2026-08-25T13:55"))
+          params = {
+              "underlying_symbols": "COIN",
+              "status": "inactive",
+              "expiration_date_gte": "2026-09-01",
+              "expiration_date_lte": "2026-09-15",
+              "strike_price_gte": f"{spot * 0.75:.2f}",
+              "strike_price_lte": f"{spot * 1.25:.2f}",
+              "limit": 10000,
+          }
+          response = client.get("https://paper-api.alpaca.markets/v2/options/contracts", params=params, headers=headers)
+          response.raise_for_status()
+          contracts = response.json().get("option_contracts", [])
+          symbols = [item["symbol"] for item in contracts[:100]]
+          option_payload = {}
+          if symbols:
+              r = client.get(
+                  "https://data.alpaca.markets/v1beta1/options/bars",
+                  params={
+                      "symbols": ",".join(symbols),
+                      "timeframe": "1Min",
+                      "start": datetime.combine(day, time(9, 50), tzinfo=ET).astimezone(UTC).isoformat().replace("+00:00", "Z"),
+                      "end": datetime.combine(day, time(11, 0), tzinfo=ET).astimezone(UTC).isoformat().replace("+00:00", "Z"),
+                      "limit": 10000,
+                      "sort": "asc",
+                  },
+                  headers=headers,
+              )
+              option_payload = {"status": r.status_code}
+              if r.status_code == 200:
+                  data = r.json()
+                  raw = data.get("bars", {})
+                  option_payload.update({
+                      "symbols_with_bars": len(raw) if isinstance(raw, dict) else None,
+                      "sample_symbols": list(raw)[:10] if isinstance(raw, dict) else [],
+                      "total_bars_first_page": sum(len(v) for v in raw.values()) if isinstance(raw, dict) else None,
+                      "next_page_token": bool(data.get("next_page_token")),
+                  })
+              else:
+                  option_payload["body"] = r.text[:1000]
+          result = {
+              "date": day.isoformat(),
+              "spot_0955": spot,
+              "inactive_contract_count": len(contracts),
+              "sample_contracts": [
+                  {
+                      "symbol": item.get("symbol"),
+                      "expiration_date": item.get("expiration_date"),
+                      "strike_price": item.get("strike_price"),
+                      "type": item.get("type"),
+                      "status": item.get("status"),
+                  }
+                  for item in contracts[:10]
+              ],
+              "historical_option_bars": option_payload,
+          }
+          print(json.dumps(result, indent=2, sort_keys=True))
+          PY
