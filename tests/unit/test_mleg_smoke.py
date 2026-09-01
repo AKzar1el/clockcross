@@ -39,7 +39,7 @@ def chain(displayed_debit: Decimal = Decimal("2.50")) -> OptionChainSnapshot:
             contract(
                 "COIN260911C00310000",
                 "310",
-                "0.35",
+                "0.15",
                 str(short_bid),
                 str(short_ask),
             ),

@@ -48,7 +48,7 @@ def test_rejects_stale_or_zero_quotes():
         feed="indicative",
         contracts=[
             contract("COIN1", strike="300", option_type="call", delta="0.55", age_seconds=61),
-            contract("COIN2", strike="310", option_type="call", delta="0.35", bid="0", ask="1"),
+            contract("COIN2", strike="310", option_type="call", delta="0.20", bid="0", ask="1"),
         ],
     )
     result = evaluate_option_feasibility(chain, now=NOW)
@@ -62,7 +62,7 @@ def test_rejects_0dte_and_out_of_range_expiration():
         feed="indicative",
         contracts=[
             contract("COIN0", strike="300", option_type="call", delta="0.55", expiration=NOW.date()),
-            contract("COIN30", strike="310", option_type="call", delta="0.35", expiration=date(2026, 10, 2)),
+            contract("COIN30", strike="310", option_type="call", delta="0.20", expiration=date(2026, 10, 2)),
         ],
     )
     result = evaluate_option_feasibility(chain, now=NOW)
@@ -89,7 +89,7 @@ def test_reports_bull_call_surface_and_records_feed():
         feed="indicative",
         contracts=[
             contract("COIN300C", strike="300", option_type="call", delta="0.56", bid="5.00", ask="5.20"),
-            contract("COIN310C", strike="310", option_type="call", delta="0.36", bid="2.70", ask="2.90"),
+            contract("COIN320C", strike="320", option_type="call", delta="0.20", bid="1.70", ask="1.90"),
         ],
     )
     result = evaluate_option_feasibility(chain, now=NOW)
@@ -105,12 +105,40 @@ def test_reports_bear_put_surface():
         feed="indicative",
         contracts=[
             contract("COIN300P", strike="300", option_type="put", delta="-0.55", bid="5.00", ask="5.20"),
-            contract("COIN290P", strike="290", option_type="put", delta="-0.35", bid="2.70", ask="2.90"),
+            contract("COIN280P", strike="280", option_type="put", delta="-0.20", bid="1.70", ask="1.90"),
         ],
     )
     result = evaluate_option_feasibility(chain, now=NOW)
     assert result.feasible is True
     assert result.available_structures == ("put_debit_spread",)
+
+
+def test_feasibility_accepts_farther_otm_short_used_by_directional_constructor():
+    chain = OptionChainSnapshot(
+        underlying="COIN",
+        feed="indicative",
+        contracts=[
+            contract("COIN300C", strike="300", option_type="call", delta="0.55", bid="4.80", ask="5.00"),
+            contract("COIN320C", strike="320", option_type="call", delta="0.15", bid="1.00", ask="1.20"),
+        ],
+    )
+    result = evaluate_option_feasibility(chain, now=NOW)
+    assert result.feasible is True
+    assert result.available_structures == ("call_debit_spread",)
+
+
+def test_feasibility_rejects_vertical_below_minimum_net_delta_floor():
+    chain = OptionChainSnapshot(
+        underlying="COIN",
+        feed="indicative",
+        contracts=[
+            contract("COIN300C", strike="300", option_type="call", delta="0.55", bid="4.80", ask="5.00"),
+            contract("COIN320C", strike="320", option_type="call", delta="0.26", bid="1.80", ask="2.00"),
+        ],
+    )
+    result = evaluate_option_feasibility(chain, now=NOW)
+    assert result.feasible is False
+    assert "no_compatible_vertical" in result.reasons
 
 
 def test_reports_both_surfaces_without_choosing_a_trade():
@@ -119,9 +147,9 @@ def test_reports_both_surfaces_without_choosing_a_trade():
         feed="opra",
         contracts=[
             contract("COIN300C", strike="300", option_type="call", delta="0.55"),
-            contract("COIN310C", strike="310", option_type="call", delta="0.35"),
+            contract("COIN320C", strike="320", option_type="call", delta="0.20"),
             contract("COIN300P", strike="300", option_type="put", delta="-0.55"),
-            contract("COIN290P", strike="290", option_type="put", delta="-0.35"),
+            contract("COIN280P", strike="280", option_type="put", delta="-0.20"),
         ],
     )
     result = evaluate_option_feasibility(chain, now=NOW)
@@ -136,7 +164,7 @@ def test_policy_rejects_excessive_relative_spread():
         feed="indicative",
         contracts=[
             contract("COIN300C", strike="300", option_type="call", delta="0.55", bid="1", ask="2"),
-            contract("COIN310C", strike="310", option_type="call", delta="0.35", bid="1", ask="2"),
+            contract("COIN320C", strike="320", option_type="call", delta="0.20", bid="1", ask="2"),
         ],
     )
     result = evaluate_option_feasibility(chain, now=NOW, policy=policy)
@@ -150,7 +178,7 @@ def test_rejects_crossed_quote():
         feed="indicative",
         contracts=[
             contract("COIN300C", strike="300", option_type="call", delta="0.55", bid="5.20", ask="5.10"),
-            contract("COIN310C", strike="310", option_type="call", delta="0.35"),
+            contract("COIN320C", strike="320", option_type="call", delta="0.20"),
         ],
     )
     result = evaluate_option_feasibility(chain, now=NOW)

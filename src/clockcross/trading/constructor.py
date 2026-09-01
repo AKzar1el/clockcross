@@ -20,15 +20,17 @@ class ConstructionPolicy(BaseModel):
     max_dte: int = Field(default=21, ge=1)
     max_quote_age_seconds: int = Field(default=60, ge=1)
     max_relative_spread: Decimal = Field(default=Decimal("0.25"), gt=Decimal("0"))
-    long_delta_target: Decimal = Decimal("0.55")
-    short_delta_target: Decimal = Decimal("0.35")
-    delta_tolerance: Decimal = Decimal("0.15")
+    long_delta_min: Decimal = Field(default=Decimal("0.45"), ge=Decimal("0"), le=Decimal("1"))
+    long_delta_max: Decimal = Field(default=Decimal("0.65"), ge=Decimal("0"), le=Decimal("1"))
+    min_net_delta: Decimal = Field(default=Decimal("0.30"), gt=Decimal("0"), le=Decimal("1"))
     max_net_debit: Decimal | None = Field(default=None, gt=Decimal("0"))
 
     @model_validator(mode="after")
-    def validate_dte_range(self) -> "ConstructionPolicy":
+    def validate_ranges(self) -> "ConstructionPolicy":
         if self.max_dte < self.min_dte:
             raise ValueError("max_dte must be >= min_dte")
+        if self.long_delta_max < self.long_delta_min:
+            raise ValueError("long_delta_max must be >= long_delta_min")
         return self
 
 
@@ -77,9 +79,10 @@ def _eligible(
     return True
 
 
-def _delta_distance(contract: OptionContractSnapshot, target: Decimal) -> Decimal:
+def _long_delta_eligible(contract: OptionContractSnapshot, policy: ConstructionPolicy) -> bool:
     assert contract.delta is not None
-    return abs(abs(contract.delta) - target)
+    magnitude = abs(contract.delta)
+    return policy.long_delta_min <= magnitude <= policy.long_delta_max
 
 
 def _candidate_pairs(
@@ -87,23 +90,35 @@ def _candidate_pairs(
     *,
     direction: Direction,
     policy: ConstructionPolicy,
-) -> list[tuple[tuple[object, ...], OptionContractSnapshot, OptionContractSnapshot, Decimal]]:
+) -> list[
+    tuple[
+        tuple[object, ...],
+        OptionContractSnapshot,
+        OptionContractSnapshot,
+        Decimal,
+        Decimal,
+        Decimal,
+    ]
+]:
     option_type: Literal["call", "put"] = "call" if direction == "bullish" else "put"
-    pairs: list[tuple[tuple[object, ...], OptionContractSnapshot, OptionContractSnapshot, Decimal]] = []
+    pairs: list[
+        tuple[
+            tuple[object, ...],
+            OptionContractSnapshot,
+            OptionContractSnapshot,
+            Decimal,
+            Decimal,
+            Decimal,
+        ]
+    ] = []
     for expiration in sorted({item.expiration for item in contracts}):
         same_expiry = [item for item in contracts if item.expiration == expiration]
-        long_legs = [
-            item
-            for item in same_expiry
-            if _delta_distance(item, policy.long_delta_target) <= policy.delta_tolerance
-        ]
-        short_legs = [
-            item
-            for item in same_expiry
-            if _delta_distance(item, policy.short_delta_target) <= policy.delta_tolerance
-        ]
+        long_legs = [item for item in same_expiry if _long_delta_eligible(item, policy)]
+        short_legs = same_expiry
         for long_leg in long_legs:
+            assert long_leg.delta is not None
             for short_leg in short_legs:
+                assert short_leg.delta is not None
                 if long_leg.symbol == short_leg.symbol:
                     continue
                 if option_type == "call" and long_leg.strike >= short_leg.strike:
@@ -116,14 +131,21 @@ def _candidate_pairs(
                     continue
                 if policy.max_net_debit is not None and debit > policy.max_net_debit:
                     continue
+                net_delta = abs(long_leg.delta) - abs(short_leg.delta)
+                if net_delta < policy.min_net_delta:
+                    continue
+                delta_per_debit = net_delta / debit
                 key = (
-                    _delta_distance(long_leg, policy.long_delta_target),
-                    _delta_distance(short_leg, policy.short_delta_target),
+                    -delta_per_debit,
+                    -net_delta,
+                    debit,
                     expiration,
                     long_leg.symbol,
                     short_leg.symbol,
                 )
-                pairs.append((key, long_leg, short_leg, debit))
+                pairs.append(
+                    (key, long_leg, short_leg, debit, net_delta, delta_per_debit)
+                )
     return pairs
 
 
@@ -152,9 +174,11 @@ def construct_vertical(
     pairs = _candidate_pairs(eligible, direction=direction, policy=policy)
     if not pairs:
         return None
-    _, long_leg, short_leg, debit = min(pairs, key=lambda item: item[0])
+    _, long_leg, short_leg, raw_debit, net_delta, delta_per_debit = min(
+        pairs, key=lambda item: item[0]
+    )
 
-    debit = debit.quantize(_CENTS, rounding=ROUND_HALF_UP)
+    debit = raw_debit.quantize(_CENTS, rounding=ROUND_HALF_UP)
     max_loss = (debit * _CONTRACT_MULTIPLIER).quantize(_CENTS, rounding=ROUND_HALF_UP)
     quote_timestamp = min(long_leg.quote_timestamp, short_leg.quote_timestamp)
     structure = "call_debit_spread" if direction == "bullish" else "put_debit_spread"
@@ -171,6 +195,9 @@ def construct_vertical(
             "feed": chain.feed,
             "long_delta": str(long_leg.delta),
             "short_delta": str(short_leg.delta),
+            "net_delta": str(net_delta),
+            "net_debit": str(debit),
+            "delta_per_debit": str(delta_per_debit),
             "long_strike": str(long_leg.strike),
             "short_strike": str(short_leg.strike),
         },

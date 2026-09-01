@@ -6,7 +6,7 @@
 
 Canonical copy-and-asset handoff for the Alpaca AI Trading Agents Hackathon submission.
 
-> Keep the project evidence-first. Do not replace `MUTATE` with a stronger claim, do not imply live-money trading, and do not claim final competition P&L before the dedicated competition account has actually run.
+> Keep the project evidence-first. Do not replace `MUTATE` with a stronger claim, do not imply live-money trading, and do not claim final competition P&L before the dedicated competition account's event run is complete.
 
 ## Project title
 
@@ -22,9 +22,11 @@ ClockCross is an autonomous AI options-trading agent built for the Alpaca AI Tra
 
 The research process is deliberately falsification-first. The initial real Alpaca historical run returned `MUTATE`, not `GO`: COIN retained useful out-of-sample evidence, MSTR weakened materially in 2026, QQQ remained a broad-market control, and the intentionally severe 100 bps underlying-friction gate failed. ClockCross preserved that negative evidence and narrowed the execution universe to COIN instead of tuning until everything looked positive.
 
-A live episode freezes the cross-market feature set, checks opening confirmation, validates a current 7–21 DTE COIN option chain, gathers read-only Alpaca MCP context, and asks a schema-bounded AI adjudicator for one of three outputs: continuation, reversion, or abstain. The model cannot choose symbols, contracts, DTE, sizing, order prices, or exits. A deterministic risk governor constructs only 1:1 vertical debit spreads, enforces position and portfolio loss caps, and submits paper MLeg orders through Alpaca with deterministic client-order IDs and reconciliation-before-retry behavior.
+A live episode freezes the cross-market feature set, checks opening confirmation, validates a current 7–21 DTE COIN option chain, gathers read-only Alpaca MCP context, and asks a schema-bounded AI adjudicator for one of three outputs: continuation, reversion, or abstain. The model cannot choose symbols, contracts, DTE, sizing, order prices, or exits. A deterministic spread constructor then evaluates defined-risk 1:1 verticals inside the existing risk budget: the long leg must be approximately 0.45–0.65 absolute delta, the spread must retain at least 0.30 absolute net directional delta, and surviving farther-OTM shorts are ranked by net directional delta per debit. The deterministic risk governor still enforces position and portfolio loss caps before any paper MLeg order can be submitted.
 
 Competition entries are restricted to the frozen 09:55–10:05 ET decision window. An opening order gets a fixed 180-second fill window and is canceled only when cancellation can be proven. A filled position exits at 10:55 ET, matching the frozen 60-minute research horizon, using the exact opening contracts in a deterministic closing MLeg. Opening and closing lifecycle state is persisted in SQLite so a restart reconciles known order identities instead of recomputing a new signal.
+
+The first real competition episode ran on 2026-09-01: read-only preflight passed, the opening MLeg filled, the deterministic research-horizon close filled on its first close attempt, and the persisted lifecycle finished `CLOSED`. This remains paper trading; final event P&L must be reported from the dedicated competition account rather than inferred from research or a single episode.
 
 The public judge demo exposes the frozen research result, negative evidence, architecture, risk envelope, and verified development preflight without exposing trading controls, credentials, or a live account connection. ClockCross is paper-only and built around auditable abstention as much as trading.
 
@@ -85,7 +87,7 @@ The judge demo already references this asset through Open Graph and Twitter-card
 
 Recommended asset: `deploy/cloudflare-demo/public/og-image.png`.
 
-GitHub's repository social-preview control is a repository Settings UI upload rather than a tracked repository file. Upload this image manually under **Repository → Settings → Social preview → Edit → Upload an image** after the hardening branch is merged. The current 1200×630 solid-background PNG is above GitHub's documented 640×320 minimum and below the 1 MB limit.
+GitHub's repository social-preview control is a repository Settings UI upload rather than a tracked repository file. Upload this image manually under **Repository → Settings → Social preview → Edit → Upload an image**. The current 1200×630 solid-background PNG is above GitHub's documented 640×320 minimum and below the 1 MB limit.
 
 ### Logo / application identity
 
@@ -112,11 +114,11 @@ Aim for a compact judge-first recording rather than a feature tour.
 2. **0:25–1:10 — Evidence**  
    Show the frozen `MUTATE` result, COIN evidence, MSTR deterioration, QQQ control, and failed 100 bps friction test.
 3. **1:10–2:00 — Autonomous pipeline**  
-   Residual → confirmation → option feasibility → Alpaca MCP context → bounded AI → deterministic risk → Alpaca MLeg paper entry → bounded fill lifecycle → deterministic 10:55 exit.
+   Residual → confirmation → option feasibility → Alpaca MCP context → bounded AI → deterministic spread selection/risk → Alpaca MLeg paper entry → bounded fill lifecycle → deterministic 10:55 exit.
 4. **2:00–2:45 — Safety / AI authority**  
    Explain the three AI outputs, fail-closed abstention, COIN-only scope, 7–21 DTE debit spreads, deterministic sizing, deterministic exit and idempotency.
 5. **2:45–3:35 — Demo**  
-   Walk the judge demo and, once available, show one real competition episode with either a trade or an abstention and its ledger evidence.
+   Walk the judge demo and show the 2026-09-01 real competition episode plus its ledger/Alpaca evidence.
 6. **3:35–4:15 — Alpaca integration**  
    Show MCP read-only context, current chain feasibility, paper MLeg entry/close execution, deterministic reconciliation, and competition-account discipline.
 7. **4:15–4:30 — Close**  
@@ -130,22 +132,24 @@ Aim for a compact judge-first recording rather than a feature tour.
 4. **What survived** — COIN evidence, MSTR negative evidence, QQQ control, failed friction test.
 5. **Autonomous system** — end-to-end architecture diagram.
 6. **AI is bounded** — continuation / reversion / abstain; deterministic authority boundaries.
-7. **Defined-risk lifecycle** — 7–21 DTE COIN debit spreads, risk caps, bounded fill, 10:55 exit, idempotency and reconciliation.
+7. **Defined-risk lifecycle** — 7–21 DTE COIN debit spreads, directional spread selection, risk caps, bounded fill, 10:55 exit, idempotency and reconciliation.
 8. **Alpaca integration** — historical/data feeds, MCP read-only context, Trading API MLeg paper entry and close.
-9. **Evidence console** — judge-demo screenshot + development preflight 5/5.
-10. **Competition proof** — final account equity/P&L, trades + abstentions, and submission links. Populate only after real competition episodes exist.
+9. **Evidence console** — judge-demo screenshot + verified preflight and first competition lifecycle.
+10. **Competition proof** — final account equity/P&L, trades + abstentions, and submission links.
 
-## Final fields that must remain blank until real evidence exists
+## Final fields still pending external/user evidence
 
-- Dedicated competition Alpaca paper account ID.
-- Final competition account P&L/equity.
-- Real competition trade/abstention screenshots.
+- Dedicated competition Alpaca paper account ID for the submission form.
+- Final competition account P&L/equity after the event run is complete.
+- Final selected competition trade/abstention screenshots.
 - Video URL.
 - Slide-deck URL/file.
 - Lablab submission URL.
 
 ## Final repository handoff
 
-The competition lifecycle hardening is being finalized on `feat/competition-runtime-hardening`. The branch adds the bounded opening lifecycle, deterministic research-aligned close, restart-safe persistence, competition timing gates, truthful live-liquidity claims, and the event-bounded GitHub Actions launcher. Merge only after the complete CI suite is green on the final branch/PR commit.
+The competition lifecycle is already on `main` and the 2026-09-01 autonomous paper lifecycle is externally proven. The current post-episode correction is intentionally narrower: it changes only deterministic option-spread construction/observability so the selected vertical retains meaningful directional exposure under the **same** signal, AI action set, COIN-only universe, 7–21 DTE window, one-contract sizing, 1%/5% defined-loss envelope, decision window, MLeg lifecycle, and 10:55 ET exit.
 
-After merge, configure the GitHub Actions environment `competition` with the fresh judging-account secrets documented in `docs/OPERATIONS.md`. The Monday development-account MLeg submit/cancel proof and the fresh competition-account startup/first episode are external gates and must remain reported as pending until they actually succeed.
+GitHub cron scheduling is no longer part of the operational design. The checked-in competition workflow uses the path-scoped `ops/competition-run-now` push trigger on `main`, with `workflow_dispatch` as recovery, while the application itself remains the final timing gate.
+
+Before any final submission, require the complete CI suite to be green on the merged commit, capture final competition account P&L/equity, add the real competition evidence to the demo/submission media, and complete the remaining Lablab/video/slide fields in `docs/SUBMISSION_CHECKLIST.md`.
