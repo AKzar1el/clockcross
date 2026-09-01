@@ -3,18 +3,18 @@
 ## Eligibility / account
 
 - [ ] lablab.ai enrollment complete.
-- [ ] Fresh dedicated Alpaca paper account created for judging.
-- [ ] Starting balance was exactly `$100,000` before first competition episode.
-- [ ] Account is options Level 3.
+- [x] Fresh dedicated Alpaca paper account created for judging.
+- [x] Starting balance was exactly `$100,000` before first competition episode.
+- [x] Account is options Level 3.
 - [ ] Competition account ID recorded for submission (never commit credentials).
 - [ ] Development and competition credentials are different.
 
 ## Required technology
 
-- [ ] Autonomous ClockCross competition episode demonstrated on the dedicated judging account.
-- [ ] Alpaca Trading API paper MLeg execution demonstrated against the open market.
+- [x] Autonomous ClockCross competition episode demonstrated on the dedicated judging account.
+- [x] Alpaca Trading API paper MLeg execution demonstrated against the open market.
 - [x] Alpaca MCP read-only context interaction demonstrated/logged.
-- [ ] Options trading demonstrated through the competition episode.
+- [x] Options trading demonstrated through the competition episode.
 - [x] Authenticated Cloudflare Workers AI gateway invoked with a schema-valid bounded decision.
 - [x] Competition lifecycle code implements bounded entry fill/cancel, persisted recovery, deterministic 10:55 ET exit, and exact-contract closing MLegs.
 - [x] Event-bounded GitHub Actions launcher is checked in with competition-only role, encrypted-secret references, concurrency, preflight-before-trade ordering, and durable state restoration.
@@ -29,7 +29,7 @@
 - [x] Live signal policy hash/artifact frozen before competition operation.
 - [x] Static zero-secret judge demo deployed: `https://clockcross-demo.tomi-seregi99.workers.dev`.
 - [ ] Trades **and abstentions** visible in the evidence console.
-- [ ] Actual Alpaca account P&L/equity captured after competition run.
+- [ ] Final competition account P&L/equity captured for submission.
 
 ## Repository / quality
 
@@ -57,7 +57,7 @@
 - [x] Public HTTPS cover URL available: `https://clockcross-demo.tomi-seregi99.workers.dev/hackathon-cover.png`.
 - [ ] Project title / descriptions / tags entered on Lablab.
 - [ ] Cover image uploaded to Lablab.
-- [ ] Public GitHub URL entered after the competition hardening branch is merged to `main`.
+- [ ] Public GitHub URL entered on Lablab.
 - [x] Demo application URL prepared: `https://clockcross-demo.tomi-seregi99.workers.dev`.
 - [ ] Demo application URL entered on Lablab.
 - [ ] Video presentation.
@@ -82,12 +82,13 @@ Tag lablab.ai and Alpaca as required by the event page.
 Software readiness and external-market proof are deliberately separate. Do not mark an external item complete because its code path is tested.
 
 - [x] Development-account external preflight passed 5/5 on 2026-08-30.
-- [ ] Development-account MLeg smoke/cancel test completed while U.S. options are open with `final_status: canceled`.
-- [ ] GitHub `competition` environment exists with the fresh judging-account Alpaca key/secret and ClockCross gateway bearer.
-- [ ] Fresh competition account passes pristine startup gate without smoke/manual trades.
-- [ ] First scheduled/manual `competition-session` completes with a valid trade lifecycle or auditable abstention.
-- [ ] No unresolved opening/closing order or indeterminate episode.
-- [ ] No undocumented manual intervention.
+- [ ] Development-account non-marketable MLeg smoke/cancel test completed while U.S. options are open with `final_status: canceled`.
+- [x] GitHub `competition` environment exists with the judging-account Alpaca key/secret and ClockCross gateway bearer.
+- [x] Fresh competition account passed pristine startup gate before its first autonomous episode.
+- [x] 2026-09-01 `competition-session` completed with opening MLeg `filled`, closing MLeg `filled`, and terminal state `CLOSED`.
+- [x] No unresolved opening/closing order remained after the 2026-09-01 episode.
+- [x] No undocumented manual trade-selection intervention occurred in the 2026-09-01 autonomous episode.
+- [ ] Post-episode directional spread-constructor correction merged to `main` with full CI green.
 - [ ] Final-day account state and P&L/equity captured before deadline.
 - [ ] Video presentation completed.
 - [ ] Slide presentation completed.
