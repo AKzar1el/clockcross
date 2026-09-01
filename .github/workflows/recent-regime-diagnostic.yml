@@ -23,7 +23,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Fetch historical market data and compute sanitized diagnostics
+      - name: Sweep delayed-safe option activity gates
         shell: bash
         run: |
           mkdir -p artifacts/diagnostic
@@ -32,209 +32,172 @@ jobs:
           import os
           import urllib.parse
           import urllib.request
-          from datetime import datetime, timezone
+          from collections import defaultdict
+          from datetime import date, datetime, time
           from pathlib import Path
+          from zoneinfo import ZoneInfo
 
           BASE = "https://data.alpaca.markets"
           HEADERS = {
               "APCA-API-KEY-ID": os.environ["ALPACA_API_KEY"],
               "APCA-API-SECRET-KEY": os.environ["ALPACA_SECRET_KEY"],
           }
-          LONG = "COIN260918C00180000"
-          SHORT = "COIN260918C00192500"
-          ENTRY_DEBIT = 5.23
-          BAR_START = "2026-09-01T13:50:00Z"
-          TRADE_START = "2026-09-01T13:20:00Z"
-          END = "2026-09-01T15:00:00Z"
-          ENTRY = datetime(2026, 9, 1, 13, 55, tzinfo=timezone.utc)
-          TARGETS = {
-              "entry_0955": "2026-09-01T13:55:00Z",
-              "plus_15m": "2026-09-01T14:10:00Z",
-              "plus_30m": "2026-09-01T14:25:00Z",
-              "plus_45m": "2026-09-01T14:40:00Z",
-              "plus_60m": "2026-09-01T14:55:00Z",
+          ET = ZoneInfo("America/New_York")
+          UTC = ZoneInfo("UTC")
+
+          # Independent control set recovered from the earlier five-signal width-family proxy.
+          # P&L labels are historical trade-bar proxies, not executable-fill claims.
+          ROWS = [
+              ("2026-08-07", 5, "COIN260821C00150000", "COIN260821C00155000", 52.0, "priced"),
+              ("2026-08-07", 10, "COIN260821C00150000", "COIN260821C00160000", 29.0, "priced"),
+              ("2026-08-07", 15, "COIN260821C00150000", "COIN260821C00165000", 82.0, "priced"),
+              ("2026-08-07", 20, "COIN260821C00150000", "COIN260821C00170000", 86.0, "priced"),
+              ("2026-08-18", 5, "COIN260904C00147000", "COIN260904C00152500", None, "insufficient_trade_bars"),
+              ("2026-08-18", 10, "COIN260904C00147000", "COIN260904C00157500", None, "insufficient_trade_bars"),
+              ("2026-08-18", 15, "COIN260904C00147000", "COIN260904C00162500", None, "insufficient_trade_bars"),
+              ("2026-08-18", 20, "COIN260904C00147000", "COIN260904C00167500", None, "insufficient_trade_bars"),
+              ("2026-08-21", 5, "COIN260904C00187500", "COIN260904C00192500", 4.0, "priced"),
+              ("2026-08-21", 10, "COIN260904C00187500", "COIN260904C00197500", None, "insufficient_trade_bars"),
+              ("2026-08-21", 15, "COIN260904C00187500", "COIN260904C00202500", 45.0, "priced"),
+              ("2026-08-21", 20, "COIN260904C00187500", "COIN260904C00207500", None, "insufficient_trade_bars"),
+              ("2026-08-24", 5, "COIN260904C00185000", "COIN260904C00190000", -17.0, "priced"),
+              ("2026-08-24", 10, "COIN260904C00185000", "COIN260904C00195000", None, "insufficient_trade_bars"),
+              ("2026-08-24", 15, "COIN260904C00185000", "COIN260904C00200000", -6.0, "priced"),
+              ("2026-08-24", 20, "COIN260904C00185000", "COIN260904C00205000", None, "insufficient_trade_bars"),
+              ("2026-09-01", 5, "COIN260918C00180000", "COIN260918C00185000", 0.0, "priced"),
+              ("2026-09-01", 10, "COIN260918C00180000", "COIN260918C00190000", 12.0, "priced"),
+              ("2026-09-01", 15, "COIN260918C00180000", "COIN260918C00195000", 19.0, "priced"),
+              ("2026-09-01", 20, "COIN260918C00180000", "COIN260918C00200000", 15.0, "priced"),
+          ]
+          LIVE = {
+              "date": "2026-09-01",
+              "long": "COIN260918C00180000",
+              "short": "COIN260918C00192500",
+              "stored_limit_pnl_dollars": -68.0,
+              "note": "approximate one-contract economics from persisted 5.23 entry debit and 4.55 exit credit; exact fill averages were not persisted",
           }
+          THRESHOLDS = [0, 1, 2, 3, 4, 5, 8, 10]
 
-          def get_pages(path, params, field):
-              merged = {}
-              token = None
-              while True:
-                  page = dict(params)
-                  if token:
-                      page["page_token"] = token
-                  url = BASE + path + "?" + urllib.parse.urlencode(page)
-                  req = urllib.request.Request(url, headers=HEADERS)
-                  with urllib.request.urlopen(req, timeout=30) as response:
-                      payload = json.load(response)
-                  data = payload.get(field, {})
-                  if isinstance(data, dict):
-                      for symbol, rows in data.items():
-                          merged.setdefault(symbol, []).extend(rows)
-                  elif isinstance(data, list):
-                      merged.setdefault("_rows", []).extend(data)
-                  token = payload.get("next_page_token")
-                  if not token:
-                      return merged
+          def utc_dt(day_s, hh, mm):
+              day = date.fromisoformat(day_s)
+              return datetime.combine(day, time(hh, mm), tzinfo=ET).astimezone(UTC)
 
-          option_bars = get_pages(
-              "/v1beta1/options/bars",
-              {
-                  "symbols": f"{LONG},{SHORT}",
-                  "timeframe": "1Min",
-                  "start": BAR_START,
-                  "end": END,
-                  "limit": 10000,
-                  "sort": "asc",
-              },
-              "bars",
-          )
-          option_trades = get_pages(
-              "/v1beta1/options/trades",
-              {
-                  "symbols": f"{LONG},{SHORT}",
-                  "start": TRADE_START,
-                  "end": END,
-                  "limit": 10000,
-                  "sort": "asc",
-              },
-              "trades",
-          )
-          stock_bars = get_pages(
-              "/v2/stocks/bars",
-              {
-                  "symbols": "COIN",
-                  "timeframe": "1Min",
-                  "start": BAR_START,
-                  "end": END,
-                  "feed": "sip",
-                  "limit": 10000,
-                  "sort": "asc",
-                  "adjustment": "raw",
-              },
-              "bars",
-          )
+          def fetch_bars(symbols, day_s):
+              merged = defaultdict(list)
+              symbols = sorted(set(symbols))
+              for offset in range(0, len(symbols), 100):
+                  chunk = symbols[offset:offset+100]
+                  token = None
+                  while True:
+                      params = {
+                          "symbols": ",".join(chunk),
+                          "timeframe": "1Min",
+                          # At a 09:55 decision the Basic indicative trade feed is 15m delayed,
+                          # so only observations timestamped through 09:40 are treated as knowable.
+                          "start": utc_dt(day_s, 9, 10).isoformat().replace("+00:00", "Z"),
+                          "end": utc_dt(day_s, 9, 41).isoformat().replace("+00:00", "Z"),
+                          "limit": 10000,
+                          "sort": "asc",
+                      }
+                      if token:
+                          params["page_token"] = token
+                      url = BASE + "/v1beta1/options/bars?" + urllib.parse.urlencode(params)
+                      req = urllib.request.Request(url, headers=HEADERS)
+                      with urllib.request.urlopen(req, timeout=30) as response:
+                          payload = json.load(response)
+                      raw = payload.get("bars", {})
+                      if isinstance(raw, dict):
+                          for symbol, bars in raw.items():
+                              merged[symbol].extend(bars)
+                      token = payload.get("next_page_token")
+                      if not token:
+                          break
+              return dict(merged)
 
-          def iso_ts(row):
-              return datetime.fromisoformat(row["t"].replace("Z", "+00:00")).astimezone(timezone.utc)
+          per_day_symbols = defaultdict(set)
+          for day_s, _, long_symbol, short_symbol, _, _ in ROWS:
+              per_day_symbols[day_s].update((long_symbol, short_symbol))
+          per_day_symbols[LIVE["date"]].update((LIVE["long"], LIVE["short"]))
 
-          def by_minute(rows):
-              return {iso_ts(row).replace(second=0, microsecond=0): row for row in rows}
+          bars_by_day = {}
+          for day_s, symbols in sorted(per_day_symbols.items()):
+              bars_by_day[day_s] = fetch_bars(symbols, day_s)
 
-          def trade_summary(rows):
-              parsed = [(iso_ts(row), row) for row in rows]
-              pre = [(ts, row) for ts, row in parsed if ts <= ENTRY]
-              post = [(ts, row) for ts, row in parsed if ENTRY < ts <= datetime(2026, 9, 1, 14, 55, tzinfo=timezone.utc)]
-              last_pre = pre[-1] if pre else None
-              return {
-                  "total_1320_1500": len(parsed),
-                  "pre_entry_count_1320_1355": len(pre),
-                  "post_entry_count_1355_1455": len(post),
-                  "last_pre_entry_trade_timestamp": last_pre[0].isoformat() if last_pre else None,
-                  "last_pre_entry_trade_price": float(last_pre[1]["p"]) if last_pre else None,
-                  "last_pre_entry_trade_age_seconds": round((ENTRY - last_pre[0]).total_seconds(), 3) if last_pre else None,
-                  "first_post_entry_trade_timestamp": post[0][0].isoformat() if post else None,
-                  "post_entry_trade_timestamps": [ts.isoformat() for ts, _ in post],
-              }
-
-          long_rows = option_bars.get(LONG, [])
-          short_rows = option_bars.get(SHORT, [])
-          coin_rows = stock_bars.get("COIN", [])
-          long_map = by_minute(long_rows)
-          short_map = by_minute(short_rows)
-          coin_map = by_minute(coin_rows)
-
-          common_minutes = sorted(set(long_map) & set(short_map))
-          spread_path = []
-          for ts in common_minutes:
-              if ts < ENTRY or ts > datetime(2026, 9, 1, 14, 55, tzinfo=timezone.utc):
-                  continue
-              long_close = float(long_map[ts]["c"])
-              short_close = float(short_map[ts]["c"])
-              value = long_close - short_close
-              spread_path.append({
-                  "timestamp": ts.isoformat(),
-                  "long_trade_bar_close": long_close,
-                  "short_trade_bar_close": short_close,
-                  "spread_trade_bar_proxy": round(value, 4),
-                  "pnl_vs_live_entry_debit_dollars": round((value - ENTRY_DEBIT) * 100, 2),
+          detailed = []
+          for day_s, width, long_symbol, short_symbol, pnl, status in ROWS:
+              day_bars = bars_by_day[day_s]
+              long_count = len(day_bars.get(long_symbol, []))
+              short_count = len(day_bars.get(short_symbol, []))
+              detailed.append({
+                  "date": day_s,
+                  "width_target": width,
+                  "long_symbol": long_symbol,
+                  "short_symbol": short_symbol,
+                  "proxy_pnl_dollars": pnl,
+                  "proxy_status": status,
+                  "long_active_minutes_0910_0940": long_count,
+                  "short_active_minutes_0910_0940": short_count,
+                  "min_leg_active_minutes_0910_0940": min(long_count, short_count),
               })
 
-          best = max(spread_path, key=lambda row: row["spread_trade_bar_proxy"], default=None)
-          worst = min(spread_path, key=lambda row: row["spread_trade_bar_proxy"], default=None)
-
-          def exact_or_none(mapping, target):
-              ts = datetime.fromisoformat(target.replace("Z", "+00:00")).replace(second=0, microsecond=0)
-              return mapping.get(ts)
-
-          target_rows = {}
-          entry_coin = exact_or_none(coin_map, TARGETS["entry_0955"])
-          entry_coin_close = float(entry_coin["c"]) if entry_coin else None
-          for name, target in TARGETS.items():
-              l = exact_or_none(long_map, target)
-              s = exact_or_none(short_map, target)
-              c = exact_or_none(coin_map, target)
-              row = {
-                  "timestamp": target,
-                  "long_bar_present": l is not None,
-                  "short_bar_present": s is not None,
-                  "coin_bar_present": c is not None,
-              }
-              if l is not None:
-                  row["long_trade_bar_close"] = float(l["c"])
-              if s is not None:
-                  row["short_trade_bar_close"] = float(s["c"])
-              if l is not None and s is not None:
-                  spread = float(l["c"]) - float(s["c"])
-                  row["spread_trade_bar_proxy"] = round(spread, 4)
-                  row["pnl_vs_live_entry_debit_dollars"] = round((spread - ENTRY_DEBIT) * 100, 2)
-              if c is not None:
-                  close = float(c["c"])
-                  row["coin_close"] = close
-                  if entry_coin_close:
-                      row["coin_return_from_0955"] = round(close / entry_coin_close - 1.0, 8)
-              target_rows[name] = row
-
-          trade_activity = {
-              LONG: trade_summary(option_trades.get(LONG, [])),
-              SHORT: trade_summary(option_trades.get(SHORT, [])),
+          live_long_count = len(bars_by_day[LIVE["date"]].get(LIVE["long"], []))
+          live_short_count = len(bars_by_day[LIVE["date"]].get(LIVE["short"], []))
+          live_activity = {
+              **LIVE,
+              "long_active_minutes_0910_0940": live_long_count,
+              "short_active_minutes_0910_0940": live_short_count,
+              "min_leg_active_minutes_0910_0940": min(live_long_count, live_short_count),
           }
+
+          priced = [row for row in detailed if row["proxy_pnl_dollars"] is not None]
+          sweep = []
+          for threshold in THRESHOLDS:
+              retained = [row for row in priced if row["min_leg_active_minutes_0910_0940"] >= threshold]
+              rejected = [row for row in priced if row["min_leg_active_minutes_0910_0940"] < threshold]
+              pnls = [row["proxy_pnl_dollars"] for row in retained]
+              winners = [p for p in pnls if p > 0]
+              losers = [p for p in pnls if p < 0]
+              sweep.append({
+                  "min_active_minutes_each_leg": threshold,
+                  "retained_priced": len(retained),
+                  "rejected_priced": len(rejected),
+                  "retained_proxy_pnl_sum_dollars": round(sum(pnls), 2),
+                  "retained_proxy_pnl_mean_dollars": round(sum(pnls) / len(pnls), 4) if pnls else None,
+                  "retained_hit_rate": round(len(winners) / len(pnls), 6) if pnls else None,
+                  "retained_losses": len(losers),
+                  "retained_wins": len(winners),
+                  "sep1_live_exact_spread_would_pass": live_activity["min_leg_active_minutes_0910_0940"] >= threshold,
+                  "rejected_rows": [
+                      {"date": row["date"], "width_target": row["width_target"], "proxy_pnl_dollars": row["proxy_pnl_dollars"]}
+                      for row in rejected
+                  ],
+              })
+
           result = {
-              "study": "Sep 1 exact executed spread historical trade activity and trade-bar path",
-              "safety": "read-only historical market-data endpoints only; no trading client or order endpoint",
-              "limitations": [
-                  "Historical option bars/trades are trade-derived observations, not arbitrary-past BBO snapshots.",
-                  "The live entry debit is taken from the persisted competition ledger; historical trades are not claimed as executable quotes.",
-                  "Only same-minute bars for both legs are used for spread-path comparisons.",
+              "study": "delayed-safe pre-entry option activity gate sweep",
+              "decision_time": "09:55 ET",
+              "activity_window": "09:10-09:40 ET",
+              "why_window_is_safe": "For Alpaca Basic indicative option trades, a 15-minute delayed feed means timestamps through 09:40 are available by the 09:55 decision. No post-09:40 activity enters the gate.",
+              "safety": "read-only historical option bars only; no trading endpoint or account mutation",
+              "interpretation_limits": [
+                  "The control-set P&L labels are historical trade-bar proxies, not executable-fill claims.",
+                  "The Sep 1 live row is evaluated only for gate pass/fail; its approximate stored-limit loss is not pooled into the proxy P&L aggregates.",
+                  "This sweep is diagnostic. A threshold is not promoted merely because it removes a recent loser.",
               ],
-              "session_date": "2026-09-01",
-              "long_symbol": LONG,
-              "short_symbol": SHORT,
-              "live_entry_debit": ENTRY_DEBIT,
-              "live_exit_stored_limit_credit": 4.55,
-              "trade_activity": trade_activity,
-              "option_bar_counts": {LONG: len(long_rows), SHORT: len(short_rows)},
-              "same_minute_spread_observations_0955_1055": len(spread_path),
-              "best_same_minute_trade_bar_proxy": best,
-              "worst_same_minute_trade_bar_proxy": worst,
-              "targets": target_rows,
-              "spread_path": spread_path,
+              "live_sep1": live_activity,
+              "rows": detailed,
+              "sweep": sweep,
           }
-          Path("artifacts/diagnostic/sep1-spread-path.json").write_text(
+          Path("artifacts/diagnostic/activity-gate-sweep.json").write_text(
               json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
           )
-          print(json.dumps({
-              "trade_activity": trade_activity,
-              "option_bar_counts": result["option_bar_counts"],
-              "same_minute_observations": result["same_minute_spread_observations_0955_1055"],
-              "best": best,
-              "targets": target_rows,
-          }, indent=2, sort_keys=True))
+          print(json.dumps({"live_sep1": live_activity, "sweep": sweep, "rows": detailed}, indent=2, sort_keys=True))
           PY
 
       - name: Upload sanitized diagnostic
         uses: actions/upload-artifact@v4
         with:
-          name: recent-regime-diagnostic
-          path: artifacts/diagnostic/sep1-spread-path.json
+          name: recent-regime-activity-gate
+          path: artifacts/diagnostic/activity-gate-sweep.json
           if-no-files-found: error
           retention-days: 3
