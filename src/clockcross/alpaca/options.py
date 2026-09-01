@@ -50,6 +50,9 @@ class OptionFeasibilityPolicy(BaseModel):
     require_delta: bool = True
     long_delta_min: Decimal = Field(default=Decimal("0.45"), ge=Decimal("0"), le=Decimal("1"))
     long_delta_max: Decimal = Field(default=Decimal("0.65"), ge=Decimal("0"), le=Decimal("1"))
+    min_short_abs_delta: Decimal = Field(
+        default=Decimal("0.10"), ge=Decimal("0"), le=Decimal("1")
+    )
     min_net_delta: Decimal = Field(default=Decimal("0.30"), gt=Decimal("0"), le=Decimal("1"))
 
     @model_validator(mode="after")
@@ -72,7 +75,10 @@ class OptionFeasibilityResult(BaseModel):
 
 
 def _quote_age_seconds(contract: OptionContractSnapshot, now: datetime) -> float:
-    return (now.astimezone(timezone.utc) - contract.quote_timestamp.astimezone(timezone.utc)).total_seconds()
+    return (
+        now.astimezone(timezone.utc)
+        - contract.quote_timestamp.astimezone(timezone.utc)
+    ).total_seconds()
 
 
 def _relative_spread(contract: OptionContractSnapshot) -> Decimal | None:
@@ -113,6 +119,14 @@ def _long_delta_eligible(
     return policy.long_delta_min <= magnitude <= policy.long_delta_max
 
 
+def _short_delta_eligible(
+    contract: OptionContractSnapshot, policy: OptionFeasibilityPolicy
+) -> bool:
+    if contract.delta is None:
+        return False
+    return abs(contract.delta) >= policy.min_short_abs_delta
+
+
 def _has_vertical(
     contracts: list[OptionContractSnapshot],
     *,
@@ -125,7 +139,9 @@ def _has_vertical(
         long_legs = [
             contract for contract in same_expiry if _long_delta_eligible(contract, policy)
         ]
-        short_legs = [contract for contract in same_expiry if contract.delta is not None]
+        short_legs = [
+            contract for contract in same_expiry if _short_delta_eligible(contract, policy)
+        ]
         for long_leg in long_legs:
             assert long_leg.delta is not None
             for short_leg in short_legs:
@@ -167,7 +183,9 @@ def evaluate_option_feasibility(
         )
 
     quote_eligible = [
-        contract for contract in chain.contracts if _quote_eligible(contract, now=now, policy=policy)
+        contract
+        for contract in chain.contracts
+        if _quote_eligible(contract, now=now, policy=policy)
     ]
     if not quote_eligible:
         reasons.append("no_eligible_contracts")
@@ -179,7 +197,9 @@ def evaluate_option_feasibility(
             evaluated_at=now,
         )
 
-    if policy.require_delta and not any(contract.delta is not None for contract in quote_eligible):
+    if policy.require_delta and not any(
+        contract.delta is not None for contract in quote_eligible
+    ):
         reasons.append("missing_required_delta")
         return OptionFeasibilityResult(
             feasible=False,
@@ -277,7 +297,9 @@ def normalize_option_chain_payload(
     return OptionChainSnapshot(
         underlying=underlying,
         feed=feed,
-        contracts=sorted(contracts, key=lambda item: (item.expiration, item.option_type, item.strike)),
+        contracts=sorted(
+            contracts, key=lambda item: (item.expiration, item.option_type, item.strike)
+        ),
         retrieved_at=datetime.now(timezone.utc),
     )
 
