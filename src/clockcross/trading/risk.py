@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from clockcross.domain import RiskDecision, SpreadCandidate
 
 ET = ZoneInfo("America/New_York")
+_CONTRACT_MULTIPLIER = Decimal("100")
 
 
 class PortfolioState(BaseModel):
@@ -32,6 +33,16 @@ class RiskPolicy(BaseModel):
 class RiskGovernor:
     def __init__(self, policy: RiskPolicy | None = None) -> None:
         self.policy = policy or RiskPolicy()
+
+    def max_candidate_net_debit(self, portfolio: PortfolioState) -> Decimal:
+        """Return the one-contract debit ceiling implied by the existing risk envelope."""
+        position_cap = portfolio.starting_equity * self.policy.per_position_loss_fraction
+        aggregate_cap = portfolio.starting_equity * self.policy.aggregate_loss_fraction
+        aggregate_remaining = aggregate_cap - portfolio.aggregate_defined_loss
+        available_loss = min(position_cap, aggregate_remaining, portfolio.buying_power)
+        if available_loss <= 0:
+            return Decimal("0")
+        return available_loss / _CONTRACT_MULTIPLIER
 
     def evaluate(
         self,
