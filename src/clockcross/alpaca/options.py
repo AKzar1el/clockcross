@@ -48,14 +48,16 @@ class OptionFeasibilityPolicy(BaseModel):
     max_quote_age_seconds: int = Field(default=60, ge=1)
     max_relative_spread: Decimal = Field(default=Decimal("0.25"), gt=Decimal("0"))
     require_delta: bool = True
-    long_delta_target: Decimal = Decimal("0.55")
-    short_delta_target: Decimal = Decimal("0.35")
-    delta_tolerance: Decimal = Decimal("0.15")
+    long_delta_min: Decimal = Field(default=Decimal("0.45"), ge=Decimal("0"), le=Decimal("1"))
+    long_delta_max: Decimal = Field(default=Decimal("0.65"), ge=Decimal("0"), le=Decimal("1"))
+    min_net_delta: Decimal = Field(default=Decimal("0.30"), gt=Decimal("0"), le=Decimal("1"))
 
     @model_validator(mode="after")
     def validate_range(self) -> "OptionFeasibilityPolicy":
         if self.max_dte < self.min_dte:
             raise ValueError("max_dte must be >= min_dte")
+        if self.long_delta_max < self.long_delta_min:
+            raise ValueError("long_delta_max must be >= long_delta_min")
         return self
 
 
@@ -102,10 +104,13 @@ def _quote_eligible(
     return True
 
 
-def _delta_matches(contract: OptionContractSnapshot, target: Decimal, tolerance: Decimal) -> bool:
+def _long_delta_eligible(
+    contract: OptionContractSnapshot, policy: OptionFeasibilityPolicy
+) -> bool:
     if contract.delta is None:
         return False
-    return abs(abs(contract.delta) - target) <= tolerance
+    magnitude = abs(contract.delta)
+    return policy.long_delta_min <= magnitude <= policy.long_delta_max
 
 
 def _has_vertical(
@@ -118,17 +123,13 @@ def _has_vertical(
     for expiration in sorted({contract.expiration for contract in typed}):
         same_expiry = [contract for contract in typed if contract.expiration == expiration]
         long_legs = [
-            contract
-            for contract in same_expiry
-            if _delta_matches(contract, policy.long_delta_target, policy.delta_tolerance)
+            contract for contract in same_expiry if _long_delta_eligible(contract, policy)
         ]
-        short_legs = [
-            contract
-            for contract in same_expiry
-            if _delta_matches(contract, policy.short_delta_target, policy.delta_tolerance)
-        ]
+        short_legs = [contract for contract in same_expiry if contract.delta is not None]
         for long_leg in long_legs:
+            assert long_leg.delta is not None
             for short_leg in short_legs:
+                assert short_leg.delta is not None
                 if long_leg.symbol == short_leg.symbol:
                     continue
                 if option_type == "call" and long_leg.strike >= short_leg.strike:
@@ -137,7 +138,10 @@ def _has_vertical(
                     continue
                 debit = long_leg.ask - short_leg.bid
                 width = abs(short_leg.strike - long_leg.strike)
-                if debit > 0 and debit < width:
+                if debit <= 0 or debit >= width:
+                    continue
+                net_delta = abs(long_leg.delta) - abs(short_leg.delta)
+                if net_delta >= policy.min_net_delta:
                     return True
     return False
 
