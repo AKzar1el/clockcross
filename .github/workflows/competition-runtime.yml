@@ -1,6 +1,11 @@
 name: Competition Runtime
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - "ops/competition-run-now"
   schedule:
     - cron: "57 9 31 8 *"
       timezone: "America/New_York"
