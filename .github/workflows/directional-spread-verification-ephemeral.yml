@@ -1,0 +1,122 @@
+name: Temporary Directional Spread Verification
+
+on:
+  push:
+    branches:
+      - fix/directional-spread-constructor
+    paths:
+      - ".github/workflows/directional-spread-verification-ephemeral.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify-live-surface:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: competition
+      deployment: false
+    env:
+      ALPACA_API_KEY: ${{ secrets.ALPACA_COMPETITION_API_KEY }}
+      ALPACA_SECRET_KEY: ${{ secrets.ALPACA_COMPETITION_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --extra dev
+      - name: Verify current read-only COIN spread surface
+        shell: bash
+        run: |
+          uv run python - <<'PY'
+          import os
+          from datetime import datetime, timedelta, timezone
+          from decimal import Decimal
+
+          from clockcross.alpaca.options import (
+              AlpacaOptionChainRestClient,
+              evaluate_option_feasibility,
+          )
+          from clockcross.runtime import AlpacaPaperAccountRestClient, AlpacaPortfolioGateway
+          from clockcross.trading.constructor import ConstructionPolicy, construct_vertical
+          from clockcross.trading.risk import RiskGovernor
+
+          now = datetime.now(timezone.utc)
+          option_client = AlpacaOptionChainRestClient(
+              os.environ["ALPACA_API_KEY"],
+              os.environ["ALPACA_SECRET_KEY"],
+          )
+          chain = option_client.fetch_chain(
+              "COIN",
+              feed="indicative",
+              expiration_gte=now.date() + timedelta(days=7),
+              expiration_lte=now.date() + timedelta(days=21),
+          )
+
+          account_client = AlpacaPaperAccountRestClient(
+              os.environ["ALPACA_API_KEY"],
+              os.environ["ALPACA_SECRET_KEY"],
+          )
+          portfolio = AlpacaPortfolioGateway(
+              account_client,
+              starting_equity=Decimal("100000"),
+          ).current()
+          risk = RiskGovernor()
+          max_net_debit = risk.max_candidate_net_debit(portfolio)
+          feasibility = evaluate_option_feasibility(chain, now=now)
+
+          print("feed=" + chain.feed)
+          print("contracts=" + str(len(chain.contracts)))
+          print("feasible=" + str(feasibility.feasible))
+          print("structures=" + ",".join(feasibility.available_structures))
+          print("constructor_max_net_debit=" + str(max_net_debit))
+
+          if chain.feed != "indicative":
+              raise RuntimeError("competition Basic verification expected indicative feed")
+          if max_net_debit < 0:
+              raise RuntimeError("constructor risk budget cannot be negative")
+
+          policy = None
+          if max_net_debit > 0:
+              policy = ConstructionPolicy(max_net_debit=max_net_debit)
+
+          for direction in ("bullish", "bearish"):
+              candidate = None
+              if policy is not None:
+                  candidate = construct_vertical(
+                      chain,
+                      direction=direction,
+                      now=now,
+                      policy=policy,
+                  )
+              if candidate is None:
+                  print(direction + "=ABSTAIN:no_constructible_vertical")
+                  continue
+
+              long_delta = abs(Decimal(candidate.metadata["long_delta"]))
+              short_delta = abs(Decimal(candidate.metadata["short_delta"]))
+              net_delta = Decimal(candidate.metadata["net_delta"])
+              delta_per_debit = Decimal(candidate.metadata["delta_per_debit"])
+              if not Decimal("0.45") <= long_delta <= Decimal("0.65"):
+                  raise RuntimeError(direction + " long delta escaped approved window")
+              if net_delta < Decimal("0.30"):
+                  raise RuntimeError(direction + " net delta escaped approved floor")
+              if candidate.net_debit > max_net_debit:
+                  raise RuntimeError(direction + " debit escaped existing risk envelope")
+              if delta_per_debit <= 0:
+                  raise RuntimeError(direction + " directional efficiency is not positive")
+              print(
+                  direction
+                  + "="
+                  + "expiration=" + str(candidate.expiration)
+                  + ",long_strike=" + candidate.metadata["long_strike"]
+                  + ",short_strike=" + candidate.metadata["short_strike"]
+                  + ",long_delta=" + str(long_delta)
+                  + ",short_delta=" + str(short_delta)
+                  + ",net_delta=" + str(net_delta)
+                  + ",net_debit=" + str(candidate.net_debit)
+                  + ",delta_per_debit=" + str(delta_per_debit)
+                  + ",max_loss=" + str(candidate.max_loss)
+              )
+          PY
