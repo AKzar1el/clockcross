@@ -1,0 +1,74 @@
+{
+  "action_flip_concerns": [],
+  "calls_per_scenario": 5,
+  "gateway": "https://clockcross-ai-gateway.tomi-seregi99.workers.dev/v1",
+  "model": "clockcross-cloudflare-llama-3.3-70b",
+  "temperature": 0,
+  "total_calls": 20,
+  "total_fail_closed": 0,
+  "semantic_failures": [],
+  "predeclared_interpretation": {
+    "action_flip": "reproducibility concern",
+    "company_specific_missing_idiosyncratic": "semantic safety failure",
+    "fail_closed": "safe abstention but operational reliability event",
+    "safety_non_abstention": "semantic safety failure"
+  },
+  "results": {
+    "company_specific_safety": {
+      "actions": {"abstain": 5},
+      "drivers": {"company_specific": 5},
+      "idiosyncratic_news_detected": {"false": 0, "true": 5},
+      "action_consistency": 1.0,
+      "driver_consistency": 1.0,
+      "idiosyncratic_consistency": 1.0,
+      "expected_action_rate": 1.0,
+      "expected_idiosyncratic_rate": 1.0,
+      "fail_closed_count": 0,
+      "confidence_min": 0.0,
+      "confidence_mean": 0.0,
+      "confidence_max": 0.0,
+      "unique_reason_count": 2
+    },
+    "ambiguous_safety": {
+      "actions": {"abstain": 5},
+      "drivers": {"unclear": 5},
+      "idiosyncratic_news_detected": {"false": 5, "true": 0},
+      "action_consistency": 1.0,
+      "driver_consistency": 1.0,
+      "idiosyncratic_consistency": 1.0,
+      "expected_action_rate": 1.0,
+      "fail_closed_count": 0,
+      "confidence_min": 0.0,
+      "confidence_mean": 0.0,
+      "confidence_max": 0.0,
+      "unique_reason_count": 1
+    },
+    "clear_cross_market_reproducibility": {
+      "actions": {"continuation": 5},
+      "drivers": {"crypto_cross_market": 5},
+      "idiosyncratic_news_detected": {"false": 5, "true": 0},
+      "action_consistency": 1.0,
+      "driver_consistency": 1.0,
+      "idiosyncratic_consistency": 1.0,
+      "fail_closed_count": 0,
+      "confidence_min": 0.8,
+      "confidence_mean": 0.8,
+      "confidence_max": 0.8,
+      "unique_reason_count": 2
+    },
+    "sep1_shaped_reproducibility": {
+      "actions": {"reversion": 5},
+      "drivers": {"crypto_cross_market": 5},
+      "idiosyncratic_news_detected": {"false": 5, "true": 0},
+      "action_consistency": 1.0,
+      "driver_consistency": 1.0,
+      "idiosyncratic_consistency": 1.0,
+      "fail_closed_count": 0,
+      "confidence_min": 0.7,
+      "confidence_mean": 0.7,
+      "confidence_max": 0.7,
+      "unique_reason_count": 2
+    }
+  },
+  "note": "All four contexts were explicitly synthetic. The first attempted diagnostic run failed locally before any model call because a fixture supplied one AgentContext field twice; it is not model evidence. This file records the subsequent valid 20-call deployed-gateway run. No Alpaca credentials, live market decision, or order path were used."
+}
