@@ -52,6 +52,8 @@ The important regime split was COIN: its 2026 test episodes averaged approximate
 
 The approved mutation therefore makes **COIN the only execution-eligible underlying** and replaces the generic friction question with a live **options-feasibility gate** using the actual Alpaca chain. The frozen live signal policy is the modal recent continuation configuration: beta-40, raw residual, 1% threshold.
 
+A later literal day-by-day replay of the current policy used the actual Alpaca market calendar from **2026-03-02 through 2026-09-01**: 128 market days, 39 residual signals, and 36 AI-directed trades. Raw continuation was **22-17 with +15.9 bps mean 60-minute directional COIN return**; the current bounded AI policy was **21-15 with +50.7 bps mean directional return** and three abstentions. The same AI was negative in June and July but strongly positive in May and August, so the repository preserves the regime weakness instead of hiding it. A three-repeat stability pass across all 23 June–Sep signal contexts produced **zero action flips across 69 deployed-gateway calls**. Full methodology and limitations are in [`docs/research/2026-09-01-end-to-end-backtest.md`](docs/research/2026-09-01-end-to-end-backtest.md).
+
 Evidence is committed under [`artifacts/research/`](artifacts/research/) and [`docs/research/`](docs/research/).
 
 ## AI authority is deliberately narrow
@@ -97,7 +99,7 @@ The MVP permits only:
 
 Live option eligibility is based only on fields the Alpaca snapshot path actually supplies and records: fresh positive/non-crossed bid/ask quotes, relative spread quality, available delta, valid vertical economics, buying power, and deterministic max-loss gates. ClockCross does not claim to enforce open-interest or volume thresholds that are absent from the normalized live snapshot.
 
-Spread construction is directional but deterministic. The long leg must have approximately **0.45–0.65 absolute delta**. ClockCross evaluates all quote-eligible farther-OTM shorts at the same expiration, requires at least **0.30 absolute net directional delta**, rejects any debit outside the existing risk-derived one-contract budget, then ranks the remaining verticals by net directional delta per debit with deterministic tie-breakers. If no structure provides meaningful directional exposure inside the existing envelope, it abstains. The ledger records long delta, short delta, net delta, net debit, and delta-per-debit for every selected candidate.
+Spread construction is directional but deterministic. The long leg must have approximately **0.45–0.65 absolute delta** and the farther-OTM short must retain at least **0.10 absolute delta**; the latter guard was added after a chronological historical replay exposed a `net_delta / debit` degeneracy that could otherwise prefer near-zero-delta lottery shorts. ClockCross evaluates all quote-eligible farther-OTM shorts at the same expiration, requires at least **0.30 absolute net directional delta**, rejects any debit outside the existing risk-derived one-contract budget, then ranks the remaining verticals by net directional delta per debit with deterministic tie-breakers. If no structure provides meaningful directional exposure inside the existing envelope, it abstains. The ledger records long delta, short delta, net delta, net debit, and delta-per-debit for every selected candidate.
 
 Default risk caps remain **1% of starting equity per position** and **5% aggregate defined loss**. Competition entries must begin inside the frozen 09:55–10:05 ET entry window. An accepted opening MLeg gets a fixed 180-second fill window; an unfilled order is canceled only after cancellation can be proven. A filled spread is managed to the **10:55 ET** exit boundary because the frozen research target is the 60-minute return from the 09:55 decision. The close reuses the exact opening contracts with `sell_to_close` / `buy_to_close`, deterministic client IDs, and at most one deterministic replacement attempt.
 
@@ -181,7 +183,7 @@ uv run ruff check .
 uv run mypy src/clockcross
 ```
 
-The suite covers leakage boundaries, option-chain normalization, directional spread selection, minimum net-delta abstention, risk-derived constructor budgets, AI fail-closed behavior, Cloudflare gateway contract constraints, risk caps, state-machine legality, SQLite idempotency, opening/closing order uncertainty, exact-contract exits, competition timing, restart-safe lifecycle recovery, workflow secret isolation, public API redaction, live-signal freezing, account-role safeguards, read-only external preflight, and repository secret scanning.
+The suite covers leakage boundaries, option-chain normalization, directional spread selection, minimum short-leg delta and minimum net-delta abstention, risk-derived constructor budgets, AI fail-closed behavior, Cloudflare gateway contract constraints, risk caps, state-machine legality, SQLite idempotency, opening/closing order uncertainty, exact-contract exits, competition timing, restart-safe lifecycle recovery, workflow secret isolation, public API redaction, live-signal freezing, account-role safeguards, read-only external preflight, and repository secret scanning.
 
 ## Project documents
 
@@ -191,6 +193,7 @@ The suite covers leakage boundaries, option-chain normalization, directional spr
 - [`docs/SUBMISSION_CHECKLIST.md`](docs/SUBMISSION_CHECKLIST.md) — final submission gate
 - [`docs/research/2026-08-29-initial-alpaca-run.md`](docs/research/2026-08-29-initial-alpaca-run.md) — immutable first-run interpretation
 - [`docs/research/2026-08-29-live-signal-policy.json`](docs/research/2026-08-29-live-signal-policy.json) — frozen live policy
+- [`docs/research/2026-09-01-end-to-end-backtest.md`](docs/research/2026-09-01-end-to-end-backtest.md) — literal daily replay, six-month evidence, AI stability, option-price limitations, and constructor hardening
 
 ## License
 
