@@ -1,0 +1,167 @@
+{
+  "study": "clockcross_chronological_end_to_end_backtest_and_constructor_hardening",
+  "accepted_at": "2026-09-01",
+  "strategy_policy": {
+    "underlying": "COIN",
+    "cross_market_driver": "BTC/USD",
+    "beta_lookback_sessions": 40,
+    "raw_residual_gate": 0.01,
+    "decision_time_et": "09:55",
+    "exit_time_et": "10:55",
+    "holding_minutes": 60,
+    "historical_stock_feed": "sip",
+    "live_option_feed": "indicative",
+    "ai_model": "clockcross-cloudflare-llama-3.3-70b",
+    "frozen_historical_mean_signed_return": 0.002745696957097104
+  },
+  "one_month": {
+    "window": ["2026-08-03", "2026-09-01"],
+    "business_days_replayed": 22,
+    "signal_days": 5,
+    "threshold_abstains": 16,
+    "data_abstains": 1,
+    "continuation": {
+      "wins": 1,
+      "losses": 4,
+      "hit_rate": 0.2,
+      "mean_directional_60m_return": -0.003277,
+      "sum_directional_60m_return": -0.016386
+    },
+    "production_context_ai": {
+      "wins": 5,
+      "losses": 0,
+      "hit_rate": 1.0,
+      "mean_directional_60m_return": 0.01116,
+      "sum_directional_60m_return": 0.0558
+    },
+    "signal_dates": ["2026-08-07", "2026-08-18", "2026-08-21", "2026-08-24", "2026-09-01"],
+    "note": "The exact production-context AI replay uses the frozen research mean injected by the live runtime."
+  },
+  "recent_quarter": {
+    "window": ["2026-06-01", "2026-09-01"],
+    "alpaca_market_days": 65,
+    "signal_days": 23,
+    "ai_trades": 22,
+    "continuation": {
+      "wins": 12,
+      "losses": 11,
+      "hit_rate": 0.5217,
+      "mean_directional_60m_return": -0.000779,
+      "sum_directional_60m_return": -0.017915
+    },
+    "ai": {
+      "wins": 11,
+      "losses": 11,
+      "hit_rate": 0.5,
+      "mean_directional_60m_return": -0.001105,
+      "sum_directional_60m_return": -0.024308
+    },
+    "regime_observation": {
+      "june_continuation_mean": 0.0082603,
+      "june_ai_mean": -0.0038293,
+      "august_continuation_mean": -0.0016476,
+      "august_ai_mean": 0.0115010
+    }
+  },
+  "six_month": {
+    "window": ["2026-03-02", "2026-09-01"],
+    "alpaca_market_days": 128,
+    "signal_days": 39,
+    "ai_trades": 36,
+    "ai_abstains": 3,
+    "data_abstains": 6,
+    "threshold_abstains": 83,
+    "continuation": {
+      "wins": 22,
+      "losses": 17,
+      "hit_rate": 0.5641025641025641,
+      "mean_directional_60m_return": 0.0015924193958009748,
+      "median_directional_60m_return": 0.005704971475142595,
+      "sum_directional_60m_return": 0.06210435643623802
+    },
+    "ai": {
+      "wins": 21,
+      "losses": 15,
+      "hit_rate": 0.5833333333333334,
+      "mean_directional_60m_return": 0.0050715911346015784,
+      "median_directional_60m_return": 0.005730701312857911,
+      "sum_directional_60m_return": 0.18257728084565683
+    },
+    "monthly_ai_mean_directional_return": {
+      "2026-03": 0.006788470858539425,
+      "2026-04": 0.01049823553152136,
+      "2026-05": 0.02544807026121234,
+      "2026-06": -0.003829296545033525,
+      "2026-07": -0.005705532145224651,
+      "2026-08": 0.01150100867979248,
+      "2026-09-01": 0.00979575979575964
+    }
+  },
+  "ai_replay_stability": {
+    "window": ["2026-06-01", "2026-09-01"],
+    "signal_contexts": 23,
+    "repeats_per_context": 3,
+    "deployed_gateway_calls": 69,
+    "action_unanimous_contexts": 23,
+    "action_flip_contexts": 0,
+    "unanimous_action_rate": 1.0,
+    "repeat_strategy_result": {
+      "trades": 22,
+      "wins": 11,
+      "losses": 11,
+      "mean_directional_60m_return": -0.0011049
+    }
+  },
+  "historical_options_replay": {
+    "signal_days": ["2026-08-07", "2026-08-18", "2026-08-21", "2026-08-24", "2026-09-01"],
+    "method": "Historical option trade bars were used for price/liquidity proxies. Arbitrary-past snapshot BBO and Greeks are not exposed by Alpaca's snapshot endpoint, so no exact historical live-constructor fill claim is made.",
+    "finding": "Correct underlying direction does not guarantee a one-hour debit-spread profit; spread expression and short-leg liquidity materially affect realized outcomes."
+  },
+  "constructor_defect_and_fix": {
+    "defect": "Maximizing net-delta-per-debit could select extremely far-OTM near-zero-delta shorts that looked efficient mathematically but had weak historical trade-print coverage.",
+    "red_regression": "A valid 0.02-absolute-delta short beat a 0.15-delta short under the old ranking for both calls and puts.",
+    "accepted_fix": {
+      "minimum_short_absolute_delta": 0.10,
+      "hard_spot_width_cap": "rejected"
+    },
+    "five_signal_historical_proxy_before": {
+      "selected": 5,
+      "entry_trade_print_coverage": 0.4,
+      "exit_trade_print_coverage": 0.2,
+      "mean_width_points": 56.9,
+      "mean_net_delta": 0.466
+    },
+    "five_signal_historical_proxy_after": {
+      "selected": 5,
+      "entry_trade_print_coverage": 0.8,
+      "exit_trade_print_coverage": 0.4,
+      "mean_width_points": 29.4,
+      "mean_net_delta": 0.3701216348
+    },
+    "post_fix_live_surface_stress": {
+      "trials_total": 12000,
+      "bullish_constructibility": 1.0,
+      "bearish_constructibility": 1.0,
+      "risk_invariant_violations": 0
+    }
+  },
+  "rejected_changes": {
+    "opening_sign_reversion_guard": "rejected; materially worsened the quarter and would have blocked the correct Sep 1 reversion",
+    "rolling_five_signal_regime_gate": "not promoted; retrospective improvement was not robust enough and it would have blocked correct August/Sep 1 reversions",
+    "hard_10pct_spot_width_cap": "rejected; removed too many otherwise valid recent candidates",
+    "ai_prompt_or_model_change": "rejected; repeated historical contexts produced zero action flips and six-month AI replay outperformed raw continuation"
+  },
+  "final_decisions": {
+    "keep_raw_residual_gate": 0.01,
+    "keep_exit_minutes": 60,
+    "keep_ai_policy": true,
+    "adopt_min_short_abs_delta": 0.10,
+    "stop_retrospective_parameter_mining": true
+  },
+  "limitations": [
+    "AI uses the current deployed model/prompt on historical timestamp-capped Alpaca context; this is current-policy replay, not a recreation of the provider implementation that existed on each historical date.",
+    "Historical option bars are trade-based and cannot reconstruct arbitrary-past snapshot bid/ask and Greeks used by the live constructor.",
+    "Historical option trade-print coverage is a liquidity proxy, not proof of executable historical BBO fillability.",
+    "Directional-return sums are diagnostic, not compounded account returns or exact option P&L."
+  ]
+}
