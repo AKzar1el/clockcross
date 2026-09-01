@@ -170,10 +170,10 @@ def test_scheduler_applies_risk_budget_and_records_directional_exposure(tmp_path
         ).fetchone()
         assert row is not None
         payload = json.loads(row["payload_json"])
-        assert payload["long_delta"] == "0.55"
-        assert payload["short_delta"] == "0.15"
-        assert payload["net_delta"] == "0.40"
-        assert payload["net_debit"] == "4.00"
-        assert payload["delta_per_debit"] == "0.10"
+        assert Decimal(payload["long_delta"]) == Decimal("0.55")
+        assert Decimal(payload["short_delta"]) == Decimal("0.15")
+        assert Decimal(payload["net_delta"]) == Decimal("0.40")
+        assert Decimal(payload["net_debit"]) == Decimal("4.00")
+        assert Decimal(payload["delta_per_debit"]) == Decimal("0.10")
     finally:
         ledger.close()
