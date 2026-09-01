@@ -22,6 +22,9 @@ class ConstructionPolicy(BaseModel):
     max_relative_spread: Decimal = Field(default=Decimal("0.25"), gt=Decimal("0"))
     long_delta_min: Decimal = Field(default=Decimal("0.45"), ge=Decimal("0"), le=Decimal("1"))
     long_delta_max: Decimal = Field(default=Decimal("0.65"), ge=Decimal("0"), le=Decimal("1"))
+    min_short_abs_delta: Decimal = Field(
+        default=Decimal("0.10"), ge=Decimal("0"), le=Decimal("1")
+    )
     min_net_delta: Decimal = Field(default=Decimal("0.30"), gt=Decimal("0"), le=Decimal("1"))
     max_net_debit: Decimal | None = Field(default=None, gt=Decimal("0"))
 
@@ -85,6 +88,11 @@ def _long_delta_eligible(contract: OptionContractSnapshot, policy: ConstructionP
     return policy.long_delta_min <= magnitude <= policy.long_delta_max
 
 
+def _short_delta_eligible(contract: OptionContractSnapshot, policy: ConstructionPolicy) -> bool:
+    assert contract.delta is not None
+    return abs(contract.delta) >= policy.min_short_abs_delta
+
+
 def _candidate_pairs(
     contracts: list[OptionContractSnapshot],
     *,
@@ -114,7 +122,7 @@ def _candidate_pairs(
     for expiration in sorted({item.expiration for item in contracts}):
         same_expiry = [item for item in contracts if item.expiration == expiration]
         long_legs = [item for item in same_expiry if _long_delta_eligible(item, policy)]
-        short_legs = same_expiry
+        short_legs = [item for item in same_expiry if _short_delta_eligible(item, policy)]
         for long_leg in long_legs:
             assert long_leg.delta is not None
             for short_leg in short_legs:
@@ -195,6 +203,7 @@ def construct_vertical(
             "feed": chain.feed,
             "long_delta": str(long_leg.delta),
             "short_delta": str(short_leg.delta),
+            "short_abs_delta": str(abs(short_leg.delta)),
             "net_delta": str(net_delta),
             "net_debit": str(debit),
             "delta_per_debit": str(delta_per_debit),
