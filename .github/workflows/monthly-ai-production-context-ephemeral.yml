@@ -1,0 +1,153 @@
+name: Monthly AI Production Context Ephemeral
+
+on:
+  push:
+    branches:
+      - research/monthly-end-to-end-backtest
+    paths:
+      - ".github/workflows/monthly-ai-production-context-ephemeral.yml"
+
+permissions:
+  contents: read
+
+env:
+  ALPACA_API_KEY: ${{ secrets.ALPACA_COMPETITION_API_KEY }}
+  ALPACA_SECRET_KEY: ${{ secrets.ALPACA_COMPETITION_SECRET_KEY }}
+  LLM_API_KEY: ${{ secrets.CLOCKCROSS_AI_GATEWAY_BEARER }}
+  LLM_BASE_URL: https://clockcross-ai-gateway.tomi-seregi99.workers.dev/v1
+  LLM_MODEL: clockcross-cloudflare-llama-3.3-70b
+  CLOCKCROSS_ACCOUNT_ROLE: competition
+  CLOCKCROSS_ALLOW_DEV_ORDER: "false"
+
+jobs:
+  replay-ai:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: competition
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --extra dev
+      - name: Replay exact production AI context on signal days
+        shell: bash
+        run: |
+          mkdir -p artifacts/monthly-backtest
+          uv run python - <<'PY'
+          import json
+          from datetime import date, datetime, time
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          import httpx
+          import numpy as np
+          import pandas as pd
+
+          from clockcross.agent.adjudicator import Adjudicator, AgentContext
+          from clockcross.alpaca.historical import AlpacaRestHistoryClient, HistoricalDataGateway
+          from clockcross.config import Settings
+          from clockcross.live_signal import LiveCoinSignalGateway, LiveSignalPolicy
+          from clockcross.trading.constructor import direction_from_agent
+
+          ET = ZoneInfo("America/New_York")
+          UTC = ZoneInfo("UTC")
+          DAYS = [date(2026,8,7), date(2026,8,18), date(2026,8,21), date(2026,8,24), date(2026,9,1)]
+          FROZEN_RESEARCH_MEAN = 0.002745696957097104
+          settings = Settings()
+          rest = AlpacaRestHistoryClient(settings.alpaca_api_key, settings.alpaca_secret_key, base_url=str(settings.alpaca_data_base_url))
+          gateway = HistoricalDataGateway(
+              stock_fetcher=lambda symbol, begin, finish: rest.fetch_stock_bars(symbol, begin, finish, feed=settings.historical_stock_feed),
+              crypto_fetcher=lambda symbol, begin, finish: rest.fetch_crypto_bars(symbol, begin, finish),
+              cache_root=None,
+              stock_feed=settings.historical_stock_feed,
+          )
+          begin = datetime(2026,4,1,tzinfo=ET).astimezone(UTC)
+          finish = datetime(2026,9,1,12,0,tzinfo=ET).astimezone(UTC)
+          btc = gateway.fetch_crypto_minutes("BTC/USD", begin, finish)
+          coin = gateway.fetch_stock_minutes("COIN", begin, finish)
+
+          class MemoryHistory:
+              @staticmethod
+              def _slice(frame, start, end):
+                  return frame.loc[(frame.index >= pd.Timestamp(start)) & (frame.index <= pd.Timestamp(end))].copy()
+              def fetch_crypto_minutes(self, symbol, start, end): return self._slice(btc, start, end)
+              def fetch_stock_minutes(self, symbol, start, end): return self._slice(coin, start, end)
+
+          policy = LiveSignalPolicy.model_validate(json.loads(Path("docs/research/2026-08-29-live-signal-policy.json").read_text()))
+          signal = LiveCoinSignalGateway(
+              history=MemoryHistory(),
+              policy=policy,
+              history_days=120,
+              historical_mean_signed_return=FROZEN_RESEARCH_MEAN,
+          )
+          ai = Adjudicator(
+              base_url=str(settings.llm_base_url),
+              api_key=settings.llm_api_key or "",
+              model=settings.llm_model or "clockcross-cloudflare-llama-3.3-70b",
+              timeout_seconds=30.0,
+          )
+          headers = {"APCA-API-KEY-ID": settings.alpaca_api_key, "APCA-API-SECRET-KEY": settings.alpaca_secret_key}
+          news_http = httpx.Client(timeout=30.0)
+
+          def utc_ts(day, hh, mm):
+              return pd.Timestamp(datetime.combine(day, time(hh,mm), tzinfo=ET).astimezone(UTC))
+          def px(frame, stamp):
+              if stamp not in frame.index: return None
+              v=frame.loc[stamp,"open"]
+              return None if isinstance(v,pd.Series) else float(v)
+          def historical_news(day):
+              start=datetime.combine(day,time(0,0),tzinfo=ET).astimezone(UTC)
+              end=datetime.combine(day,time(9,55),tzinfo=ET).astimezone(UTC)
+              r=news_http.get("https://data.alpaca.markets/v1beta1/news",params={"symbols":"COIN","start":start.isoformat().replace("+00:00","Z"),"end":end.isoformat().replace("+00:00","Z"),"sort":"desc","limit":10,"include_content":"false"},headers=headers)
+              r.raise_for_status()
+              return [{"headline":x.get("headline"),"summary":x.get("summary"),"source":x.get("source"),"created_at":x.get("created_at")} for x in r.json().get("news",[])[:10]]
+
+          rows=[]
+          for day in DAYS:
+              f=signal.collect_premarket(day)
+              if f is None: raise RuntimeError(f"missing features {day}")
+              f=signal.opening_confirmation(f)
+              if f is None: raise RuntimeError(f"missing confirmation {day}")
+              e=signal.evaluate(f)
+              if not e.approved: raise RuntimeError(f"expected signal did not pass {day}")
+              entry=px(coin,utc_ts(day,9,55)); exit_=px(coin,utc_ts(day,10,55))
+              if entry is None or exit_ is None: raise RuntimeError(f"missing outcome {day}")
+              forward=exit_/entry-1.0
+              sign=1 if f.residual>0 else -1
+              news=historical_news(day)
+              ctx=AgentContext(
+                  underlying="COIN", residual=f.residual, residual_z=e.residual_z, residual_sign=sign,
+                  btc_return=f.btc_return, opening_10m_return=f.opening_10m_return,
+                  historical_mean_signed_return=e.historical_mean_signed_return,
+                  option_feed="indicative", available_structures=("call_debit_spread","put_debit_spread"),
+                  news_summary=json.dumps(news,sort_keys=True,default=str,separators=(",",":"))[:1600],
+              )
+              d=ai.decide(ctx); direction=direction_from_agent(d.action,sign)
+              directional=0.0 if direction is None else (forward if direction=="bullish" else -forward)
+              rows.append({
+                  "date":day.isoformat(),"residual":f.residual,"residual_z":e.residual_z,"opening_10m_return":f.opening_10m_return,
+                  "historical_mean_signed_return":e.historical_mean_signed_return,"news_count":len(news),
+                  "action":d.action.value,"direction":direction,"confidence":d.confidence,"driver":d.driver.value,
+                  "idiosyncratic_news_detected":d.idiosyncratic_news_detected,"reason":d.reason,
+                  "coin_60m_return":forward,"directional_60m_return":directional,
+              })
+          arr=np.asarray([r["directional_60m_return"] for r in rows],dtype=float)
+          payload={
+              "study":"monthly_signal_days_exact_production_ai_mean_replay",
+              "frozen_research_mean":FROZEN_RESEARCH_MEAN,
+              "signal_days":len(rows),"wins":int((arr>0).sum()),"losses":int((arr<0).sum()),
+              "hit_rate":float((arr>0).mean()),"mean_directional_60m_return":float(arr.mean()),
+              "median_directional_60m_return":float(np.median(arr)),"sum_directional_60m_return":float(arr.sum()),
+              "rows":rows,
+              "limitation":"Historical news is timestamp-capped Alpaca news rather than a time-travel replay of the MCP runner response wrapper; option structures are assumed available for the AI-only decision replay.",
+          }
+          Path("artifacts/monthly-backtest/monthly-ai-production-context.json").write_text(json.dumps(payload,indent=2,sort_keys=True)+"\n")
+          print(json.dumps(payload,indent=2,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: monthly-ai-production-context
+          path: artifacts/monthly-backtest/monthly-ai-production-context.json
+          if-no-files-found: error
+          retention-days: 5
