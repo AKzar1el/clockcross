@@ -1,0 +1,117 @@
+name: Quarter AI Stability Ephemeral
+
+on:
+  push:
+    branches:
+      - research/monthly-end-to-end-backtest
+    paths:
+      - ".github/workflows/quarter-ai-stability-ephemeral.yml"
+
+permissions:
+  contents: read
+
+env:
+  ALPACA_API_KEY: ${{ secrets.ALPACA_COMPETITION_API_KEY }}
+  ALPACA_SECRET_KEY: ${{ secrets.ALPACA_COMPETITION_SECRET_KEY }}
+  LLM_API_KEY: ${{ secrets.CLOCKCROSS_AI_GATEWAY_BEARER }}
+  LLM_BASE_URL: https://clockcross-ai-gateway.tomi-seregi99.workers.dev/v1
+  LLM_MODEL: clockcross-cloudflare-llama-3.3-70b
+  CLOCKCROSS_ACCOUNT_ROLE: competition
+  CLOCKCROSS_ALLOW_DEV_ORDER: "false"
+
+jobs:
+  stability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    environment: competition
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --extra dev
+      - name: Replay each quarter signal context three times
+        shell: bash
+        run: |
+          mkdir -p artifacts/monthly-backtest
+          uv run python - <<'PY'
+          import json
+          from collections import Counter
+          from datetime import date, datetime, time
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          import httpx
+          import numpy as np
+          import pandas as pd
+
+          from clockcross.agent.adjudicator import Adjudicator, AgentContext
+          from clockcross.alpaca.historical import AlpacaRestHistoryClient, HistoricalDataGateway
+          from clockcross.config import Settings
+          from clockcross.live_signal import LiveCoinSignalGateway, LiveSignalPolicy
+          from clockcross.trading.constructor import direction_from_agent
+
+          ET=ZoneInfo("America/New_York"); UTC=ZoneInfo("UTC")
+          START=date(2026,6,1); END=date(2026,9,1); HISTORY_START=date(2026,1,15)
+          FROZEN_MEAN=0.002745696957097104; REPEATS=3
+          settings=Settings(); headers={"APCA-API-KEY-ID":settings.alpaca_api_key,"APCA-API-SECRET-KEY":settings.alpaca_secret_key}; http=httpx.Client(timeout=30.0)
+          cal=http.get("https://paper-api.alpaca.markets/v2/calendar",params={"start":START.isoformat(),"end":END.isoformat()},headers=headers);cal.raise_for_status();sessions=[date.fromisoformat(x["date"]) for x in cal.json()]
+          rest=AlpacaRestHistoryClient(settings.alpaca_api_key,settings.alpaca_secret_key,base_url=str(settings.alpaca_data_base_url))
+          hg=HistoricalDataGateway(stock_fetcher=lambda s,b,e:rest.fetch_stock_bars(s,b,e,feed=settings.historical_stock_feed),crypto_fetcher=lambda s,b,e:rest.fetch_crypto_bars(s,b,e),cache_root=None,stock_feed=settings.historical_stock_feed)
+          begin=datetime.combine(HISTORY_START,time.min,tzinfo=ET).astimezone(UTC);finish=datetime.combine(END,time(12),tzinfo=ET).astimezone(UTC)
+          btc=hg.fetch_crypto_minutes("BTC/USD",begin,finish);coin=hg.fetch_stock_minutes("COIN",begin,finish)
+          class MH:
+              @staticmethod
+              def sl(f,b,e):return f.loc[(f.index>=pd.Timestamp(b))&(f.index<=pd.Timestamp(e))].copy()
+              def fetch_crypto_minutes(self,s,b,e):return self.sl(btc,b,e)
+              def fetch_stock_minutes(self,s,b,e):return self.sl(coin,b,e)
+          policy=LiveSignalPolicy.model_validate(json.loads(Path("docs/research/2026-08-29-live-signal-policy.json").read_text()))
+          sg=LiveCoinSignalGateway(history=MH(),policy=policy,history_days=120,historical_mean_signed_return=FROZEN_MEAN)
+          ai=Adjudicator(base_url=str(settings.llm_base_url),api_key=settings.llm_api_key or "",model=settings.llm_model or "clockcross-cloudflare-llama-3.3-70b",timeout_seconds=30.0)
+          def st(d,h,m):return pd.Timestamp(datetime.combine(d,time(h,m),tzinfo=ET).astimezone(UTC))
+          def px(f,s):
+              if s not in f.index:return None
+              v=f.loc[s,"open"];return None if isinstance(v,pd.Series) else float(v)
+          def news(d):
+              b=datetime.combine(d,time(0),tzinfo=ET).astimezone(UTC);e=datetime.combine(d,time(9,55),tzinfo=ET).astimezone(UTC)
+              r=http.get("https://data.alpaca.markets/v1beta1/news",params={"symbols":"COIN","start":b.isoformat().replace("+00:00","Z"),"end":e.isoformat().replace("+00:00","Z"),"sort":"desc","limit":10,"include_content":"false"},headers=headers);r.raise_for_status()
+              return [{"headline":x.get("headline"),"summary":x.get("summary"),"source":x.get("source"),"created_at":x.get("created_at")} for x in r.json().get("news",[])[:10]]
+          def signed(direction,forward):
+              if direction is None:return 0.0
+              return forward if direction=="bullish" else -forward
+          contexts=[]
+          for d in sessions:
+              f=sg.collect_premarket(d)
+              if f is None:continue
+              f=sg.opening_confirmation(f)
+              if f is None:continue
+              ev=sg.evaluate(f)
+              if not ev.approved:continue
+              en=px(coin,st(d,9,55));ex=px(coin,st(d,10,55))
+              if en is None or ex is None or en<=0:continue
+              forward=ex/en-1;sign=1 if f.residual>0 else -1;n=news(d)
+              ctx=AgentContext(underlying="COIN",residual=f.residual,residual_z=ev.residual_z,residual_sign=sign,btc_return=f.btc_return,opening_10m_return=f.opening_10m_return,historical_mean_signed_return=ev.historical_mean_signed_return,option_feed="indicative",available_structures=("call_debit_spread","put_debit_spread"),news_summary=json.dumps(n,sort_keys=True,default=str,separators=(",",":"))[:1600])
+              contexts.append((d,f,ev,ctx,forward,sign,len(n)))
+
+          rows=[]; repeat_returns=[[] for _ in range(REPEATS)]
+          for d,f,ev,ctx,forward,sign,news_count in contexts:
+              decisions=[]
+              for idx in range(REPEATS):
+                  dec=ai.decide(ctx);direction=direction_from_agent(dec.action,sign);ret=signed(direction,forward)
+                  decisions.append({"repeat":idx+1,"action":dec.action.value,"direction":direction,"confidence":dec.confidence,"driver":dec.driver.value,"idiosyncratic_news_detected":dec.idiosyncratic_news_detected,"reason":dec.reason,"directional_60m_return":ret})
+                  if direction is not None:repeat_returns[idx].append(ret)
+              actions=[x["action"] for x in decisions];counts=Counter(actions);majority_action=counts.most_common(1)[0][0]
+              unanimous=len(counts)==1
+              rows.append({"date":d.isoformat(),"month":d.strftime("%Y-%m"),"residual":f.residual,"residual_z":ev.residual_z,"opening_10m_return":f.opening_10m_return,"coin_60m_return":forward,"news_count":news_count,"unanimous_action":unanimous,"action_counts":dict(counts),"majority_action":majority_action,"decisions":decisions})
+          def stats(vals):
+              if not vals:return {"count":0,"wins":0,"losses":0,"mean":None,"median":None,"hit_rate":None,"sum":0.0}
+              a=np.asarray(vals,float);return {"count":int(a.size),"wins":int((a>0).sum()),"losses":int((a<0).sum()),"mean":float(a.mean()),"median":float(np.median(a)),"hit_rate":float((a>0).mean()),"sum":float(a.sum())}
+          payload={"study":"quarter_historical_context_ai_action_stability","window":{"start":START.isoformat(),"end":END.isoformat()},"repeats_per_signal":REPEATS,"signal_context_count":len(rows),"unanimous_action_count":sum(r["unanimous_action"] for r in rows),"action_flip_context_count":sum(not r["unanimous_action"] for r in rows),"unanimous_action_rate":sum(r["unanimous_action"] for r in rows)/len(rows) if rows else None,"repeat_strategy_stats":[{"repeat":i+1,**stats(v)} for i,v in enumerate(repeat_returns)],"rows":rows,"limitations":["This measures current deployed model/gateway stability on historical bounded inputs. It does not recreate the provider implementation as it existed on each historical date.","Historical news is timestamp-capped Alpaca news. Repeated calls use identical constructed context within this run."]}
+          Path("artifacts/monthly-backtest/quarter-ai-stability.json").write_text(json.dumps(payload,indent=2,sort_keys=True)+"\n");print(json.dumps(payload,indent=2,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quarter-ai-stability
+          path: artifacts/monthly-backtest/quarter-ai-stability.json
+          if-no-files-found: error
+          retention-days: 5
