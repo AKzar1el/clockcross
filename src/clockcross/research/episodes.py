@@ -140,6 +140,7 @@ def build_episode_frame(
     betas: list[float | None] = []
     expected: list[float | None] = []
     residuals: list[float | None] = []
+    training_counts: list[int] = []
     training_starts: list[date | None] = []
     training_ends: list[date | None] = []
 
@@ -150,6 +151,7 @@ def build_episode_frame(
             prior["equity_premarket_return"].to_numpy(dtype=float),
         )
         betas.append(beta)
+        training_counts.append(int(len(prior)))
         training_starts.append(None if prior.empty else prior.iloc[0]["session_date"])
         training_ends.append(None if prior.empty else prior.iloc[-1]["session_date"])
         if beta is None:
@@ -163,6 +165,7 @@ def build_episode_frame(
     frame["beta"] = betas
     frame["expected_return"] = expected
     frame["residual"] = residuals
+    frame["training_count"] = training_counts
     frame["training_start"] = training_starts
     frame["training_end"] = training_ends
     return frame
