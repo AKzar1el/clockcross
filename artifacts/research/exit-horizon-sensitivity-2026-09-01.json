@@ -1,0 +1,135 @@
+{
+  "historical_stock_feed": "sip",
+  "history_start": "2024-10-01",
+  "research_sample_end": "2026-08-28",
+  "research_sample_start": "2025-01-02",
+  "sep1_external": {
+    "continuation_signed_returns": {
+      "120": -0.0010822510822510178,
+      "15": -0.010323010323010307,
+      "30": -0.01121101121101109,
+      "45": -0.010794760794760716,
+      "60": -0.00979575979575964,
+      "90": -0.0005550005550005732
+    },
+    "note": "Sep 1 is external-only and is excluded from promotion decisions.",
+    "opening_10m_return": -0.01429280944760225,
+    "residual": -0.017118157841602956,
+    "reversion_signed_returns": {
+      "120": 0.0010822510822510178,
+      "15": 0.010323010323010307,
+      "30": 0.01121101121101109,
+      "45": 0.010794760794760716,
+      "60": 0.00979575979575964,
+      "90": 0.0005550005550005732
+    },
+    "session_date": "2026-09-01",
+    "training_count": 40,
+    "underlying_returns": {
+      "120": 0.0010822510822510178,
+      "15": 0.010323010323010307,
+      "30": 0.01121101121101109,
+      "45": 0.010794760794760716,
+      "60": 0.00979575979575964,
+      "90": 0.0005550005550005732
+    }
+  },
+  "study": {
+    "baseline_minutes": 60,
+    "episode_count": 117,
+    "horizons": {
+      "120": {
+        "bootstrap_ci_high": 0.0014426294138247381,
+        "bootstrap_ci_low": -0.0035145807270817913,
+        "count": 117,
+        "eligible_for_promotion": false,
+        "hit_rate": 0.5470085470085471,
+        "hit_rate_not_worse": false,
+        "leave_one_out_min_mean_improvement": -0.0013803125194740762,
+        "mean_signed_return": 0.0031952053119840597,
+        "median_not_worse": true,
+        "median_signed_return": 0.005083049960763808,
+        "paired_mean_improvement": -0.0010434977018669055,
+        "yearly_not_worse": false
+      },
+      "15": {
+        "bootstrap_ci_high": -0.0007229680116910881,
+        "bootstrap_ci_low": -0.006500061712199381,
+        "count": 117,
+        "eligible_for_promotion": false,
+        "hit_rate": 0.5384615384615384,
+        "hit_rate_not_worse": false,
+        "leave_one_out_min_mean_improvement": -0.003923607120539052,
+        "mean_signed_return": 0.0006419095373983019,
+        "median_not_worse": false,
+        "median_signed_return": 0.001039697542532969,
+        "paired_mean_improvement": -0.0035967934764526634,
+        "yearly_not_worse": false
+      },
+      "30": {
+        "bootstrap_ci_high": -0.00009550652514921611,
+        "bootstrap_ci_low": -0.004615644265961624,
+        "count": 117,
+        "eligible_for_promotion": false,
+        "hit_rate": 0.5726495726495726,
+        "hit_rate_not_worse": false,
+        "leave_one_out_min_mean_improvement": -0.002543953478481757,
+        "mean_signed_return": 0.0019406805530279468,
+        "median_not_worse": false,
+        "median_signed_return": 0.0015632549810988827,
+        "paired_mean_improvement": -0.0022980224608230185,
+        "yearly_not_worse": false
+      },
+      "45": {
+        "bootstrap_ci_high": 0.00017986975871005456,
+        "bootstrap_ci_low": -0.003262428606585683,
+        "count": 117,
+        "eligible_for_promotion": false,
+        "hit_rate": 0.5897435897435898,
+        "hit_rate_not_worse": true,
+        "leave_one_out_min_mean_improvement": -0.0016865879317815734,
+        "mean_signed_return": 0.0027840981401014123,
+        "median_not_worse": false,
+        "median_signed_return": 0.003488066448597227,
+        "paired_mean_improvement": -0.0014546048737495531,
+        "yearly_not_worse": false
+      },
+      "60": {
+        "bootstrap_ci_high": 0.0,
+        "bootstrap_ci_low": 0.0,
+        "count": 117,
+        "eligible_for_promotion": false,
+        "hit_rate": 0.5811965811965812,
+        "hit_rate_not_worse": true,
+        "leave_one_out_min_mean_improvement": 0.0,
+        "mean_signed_return": 0.004238703013850965,
+        "median_not_worse": true,
+        "median_signed_return": 0.004744228585845889,
+        "paired_mean_improvement": 0.0,
+        "yearly_not_worse": true
+      },
+      "90": {
+        "bootstrap_ci_high": 0.0004744638317701847,
+        "bootstrap_ci_low": -0.0036042742072938676,
+        "count": 117,
+        "eligible_for_promotion": false,
+        "hit_rate": 0.5555555555555556,
+        "hit_rate_not_worse": false,
+        "leave_one_out_min_mean_improvement": -0.0016504739933596397,
+        "mean_signed_return": 0.002764468964540728,
+        "median_not_worse": false,
+        "median_signed_return": 0.0038518885500631317,
+        "paired_mean_improvement": -0.0014742340493102374,
+        "yearly_not_worse": false
+      }
+    },
+    "minimum_training_count": 40,
+    "policy": "coin-continuation-beta40-raw1pct-2026-08-29",
+    "promoted": false,
+    "recommended_minutes": 60,
+    "sample_end": "2026-08-24",
+    "sample_start": "2025-01-02",
+    "tested_minutes": [15, 30, 45, 60, 90, 120],
+    "threshold": 0.01
+  }
+}

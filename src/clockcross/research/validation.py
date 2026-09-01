@@ -16,6 +16,10 @@ from clockcross.research.metrics import summarize_returns
 Thesis = Literal["continuation", "reversion"]
 Normalization = Literal["raw", "zscore"]
 Horizon = Literal["forward_30m_return", "forward_60m_return"]
+_FROZEN_HORIZON_MINUTES = (15, 30, 45, 60, 90, 120)
+_FROZEN_HORIZON_BASELINE = 60
+_FROZEN_SIGNAL_THRESHOLD = 0.01
+_FROZEN_MIN_TRAINING_COUNT = 40
 
 
 class ResearchVerdict(StrEnum):
@@ -319,3 +323,141 @@ def evaluate_residual_strategy(
             "beta_lookbacks": list(config.beta_lookbacks),
         },
     )
+
+
+def _paired_bootstrap_ci(
+    differences: np.ndarray,
+    *,
+    samples: int,
+    seed: int,
+) -> tuple[float, float]:
+    if samples <= 0:
+        raise ValueError("bootstrap_samples must be positive")
+    if differences.size == 0:
+        raise ValueError("paired bootstrap requires at least one episode")
+    rng = np.random.default_rng(seed)
+    indices = rng.integers(0, differences.size, size=(samples, differences.size))
+    means = differences[indices].mean(axis=1)
+    low, high = np.quantile(means, [0.025, 0.975])
+    return float(low), float(high)
+
+
+def evaluate_frozen_horizon_sensitivity(
+    frame: pd.DataFrame,
+    *,
+    bootstrap_samples: int = 10_000,
+    bootstrap_seed: int = 20260901,
+) -> dict[str, object]:
+    """Compare exit horizons while freezing the approved COIN continuation signal."""
+    horizon_columns = {
+        minutes: f"forward_{minutes}m_return" for minutes in _FROZEN_HORIZON_MINUTES
+    }
+    required = {
+        "session_date",
+        "residual",
+        "training_count",
+        *horizon_columns.values(),
+    }
+    missing = required.difference(frame.columns)
+    if missing:
+        raise ValueError(f"missing horizon sensitivity columns: {sorted(missing)}")
+
+    common = frame.dropna(subset=sorted(required)).copy()
+    common["session_date"] = pd.to_datetime(common["session_date"])
+    common = common.loc[
+        common["training_count"].astype(int) >= _FROZEN_MIN_TRAINING_COUNT
+    ]
+    common = common.loc[common["residual"].astype(float).abs() >= _FROZEN_SIGNAL_THRESHOLD]
+    common = common.sort_values("session_date").reset_index(drop=True)
+    if common.empty:
+        raise ValueError("no complete frozen-policy episodes for horizon sensitivity")
+
+    residuals = common["residual"].to_numpy(dtype=float)
+    direction = np.sign(residuals)
+    signed_returns = {
+        minutes: direction * common[column].to_numpy(dtype=float)
+        for minutes, column in horizon_columns.items()
+    }
+    baseline = signed_returns[_FROZEN_HORIZON_BASELINE]
+    baseline_summary = summarize_returns(baseline)
+    years = common["session_date"].dt.year.to_numpy(dtype=int)
+
+    horizons: dict[str, dict[str, object]] = {}
+    eligible_scores: dict[int, float] = {}
+    for minutes in _FROZEN_HORIZON_MINUTES:
+        signed = signed_returns[minutes]
+        summary = summarize_returns(signed)
+        differences = signed - baseline
+        paired_mean = float(differences.mean())
+        ci_low, ci_high = _paired_bootstrap_ci(
+            differences,
+            samples=bootstrap_samples,
+            seed=bootstrap_seed + minutes,
+        )
+        if differences.size > 1:
+            leave_one_out_min = min(
+                float(np.delete(differences, index).mean())
+                for index in range(differences.size)
+            )
+        else:
+            leave_one_out_min = paired_mean
+
+        yearly_not_worse = all(
+            float(signed[years == year].mean())
+            >= float(baseline[years == year].mean()) - 1e-12
+            for year in sorted(set(years.tolist()))
+        )
+        median_not_worse = summary.median >= baseline_summary.median - 1e-12
+        hit_rate_not_worse = summary.hit_rate >= baseline_summary.hit_rate - 1e-12
+        eligible = (
+            minutes != _FROZEN_HORIZON_BASELINE
+            and differences.size >= 5
+            and paired_mean > 0.0
+            and ci_low > 0.0
+            and leave_one_out_min > 0.0
+            and median_not_worse
+            and hit_rate_not_worse
+            and yearly_not_worse
+        )
+        if eligible:
+            eligible_scores[minutes] = paired_mean
+
+        horizons[str(minutes)] = {
+            "count": summary.count,
+            "mean_signed_return": summary.mean,
+            "median_signed_return": summary.median,
+            "hit_rate": summary.hit_rate,
+            "paired_mean_improvement": paired_mean,
+            "bootstrap_ci_low": ci_low,
+            "bootstrap_ci_high": ci_high,
+            "leave_one_out_min_mean_improvement": leave_one_out_min,
+            "median_not_worse": median_not_worse,
+            "hit_rate_not_worse": hit_rate_not_worse,
+            "yearly_not_worse": yearly_not_worse,
+            "eligible_for_promotion": eligible,
+        }
+
+    recommended = _FROZEN_HORIZON_BASELINE
+    if eligible_scores:
+        recommended = max(
+            eligible_scores,
+            key=lambda minutes: (
+                eligible_scores[minutes],
+                -abs(minutes - _FROZEN_HORIZON_BASELINE),
+                -minutes,
+            ),
+        )
+
+    return {
+        "policy": "coin-continuation-beta40-raw1pct-2026-08-29",
+        "threshold": _FROZEN_SIGNAL_THRESHOLD,
+        "minimum_training_count": _FROZEN_MIN_TRAINING_COUNT,
+        "baseline_minutes": _FROZEN_HORIZON_BASELINE,
+        "tested_minutes": list(_FROZEN_HORIZON_MINUTES),
+        "episode_count": int(common.shape[0]),
+        "sample_start": common.iloc[0]["session_date"].date().isoformat(),
+        "sample_end": common.iloc[-1]["session_date"].date().isoformat(),
+        "recommended_minutes": recommended,
+        "promoted": recommended != _FROZEN_HORIZON_BASELINE,
+        "horizons": horizons,
+    }
