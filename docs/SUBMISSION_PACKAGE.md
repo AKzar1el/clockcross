@@ -6,7 +6,7 @@
 
 Canonical copy-and-asset handoff for the Alpaca AI Trading Agents Hackathon submission.
 
-> Keep the project evidence-first. Do not replace `MUTATE` with a stronger claim, do not imply live-money trading, and do not claim final competition P&L before the dedicated competition account's event run is complete.
+> Keep the project evidence-first. Do not replace `MUTATE` with a stronger claim, do not imply live-money trading, do not convert underlying-direction diagnostics into account returns, and do not invent historical option fills where Alpaca does not expose arbitrary-past snapshot BBO/Greeks.
 
 ## Project title
 
@@ -14,21 +14,35 @@ Canonical copy-and-asset handoff for the Alpaca AI Trading Agents Hackathon subm
 
 ## Short description
 
-ClockCross turns BTC-to-COIN repricing gaps into bounded, defined-risk Alpaca option spreads only after chronological evidence, AI adjudication, and deterministic risk gates.
+ClockCross turns BTC-to-COIN repricing gaps into bounded Alpaca option spreads only after chronological falsification, bounded AI adjudication, and deterministic risk gates.
 
 ## Long description
 
-ClockCross is an autonomous AI options-trading agent built for the Alpaca AI Trading Agents Hackathon. It looks for a specific cross-market timing effect: BTC trades continuously, while U.S. equity options do not. Rather than assuming that an overnight BTC move predicts COIN at the open, ClockCross estimates the expected COIN premarket move from prior-session BTC/COIN beta and measures the unexplained residual.
+ClockCross is an autonomous AI options-trading agent built for the Alpaca AI Trading Agents Hackathon. It starts from a specific cross-market timing question: BTC trades continuously while U.S. equity options do not. Instead of blindly following overnight BTC direction, ClockCross estimates COIN's expected premarket move from prior-session BTC/COIN beta and trades only the unexplained residual that survives deterministic evidence gates.
 
-The research process is deliberately falsification-first. The initial real Alpaca historical run returned `MUTATE`, not `GO`: COIN retained useful out-of-sample evidence, MSTR weakened materially in 2026, QQQ remained a broad-market control, and the intentionally severe 100 bps underlying-friction gate failed. ClockCross preserved that negative evidence and narrowed the execution universe to COIN instead of tuning until everything looked positive.
+The research process is deliberately falsification-first. The first real Alpaca historical run returned `MUTATE`, not `GO`: COIN retained useful out-of-sample evidence, MSTR weakened materially in 2026, QQQ remained a broad-market control, and the intentionally severe 100 bps underlying-friction gate failed. ClockCross preserved that negative evidence and narrowed execution to COIN instead of tuning until the broad thesis looked positive.
 
-A live episode freezes the cross-market feature set, checks opening confirmation, validates a current 7–21 DTE COIN option chain, gathers read-only Alpaca MCP context, and asks a schema-bounded AI adjudicator for one of three outputs: continuation, reversion, or abstain. The model cannot choose symbols, contracts, DTE, sizing, order prices, or exits. A deterministic spread constructor then evaluates defined-risk 1:1 verticals inside the existing risk budget: the long leg must be approximately 0.45–0.65 absolute delta, the spread must retain at least 0.30 absolute net directional delta, and surviving farther-OTM shorts are ranked by net directional delta per debit. The deterministic risk governor still enforces position and portfolio loss caps before any paper MLeg order can be submitted.
+After the first autonomous competition episode, ClockCross ran a literal six-month chronological replay of the final decision policy over 128 actual Alpaca market days. It produced 39 signals, 36 AI trades, 3 AI abstentions, 6 data abstentions, and 83 threshold abstentions. The current AI finished 21-15 with a 58.3% directional hit rate and +50.7 bps mean chosen-direction 60-minute COIN return versus frozen continuation at 22-17 and +15.9 bps mean. June (-38.3 bps) and July (-57.1 bps) remained losing AI regimes and are shown explicitly rather than tuned away. These are underlying-return diagnostics, not compounded account returns.
 
-Competition entries are restricted to the frozen 09:55–10:05 ET decision window. An opening order gets a fixed 180-second fill window and is canceled only when cancellation can be proven. A filled position exits at 10:55 ET, matching the frozen 60-minute research horizon, using the exact opening contracts in a deterministic closing MLeg. Opening and closing lifecycle state is persisted in SQLite so a restart reconciles known order identities instead of recomputing a new signal.
+The backtest also found a real production-selection defect. The existing net-delta/debit objective could prefer extremely far-OTM ~0.00-0.02-delta shorts, producing 50-60 point-wide spreads with weak historical short-leg print coverage. ClockCross promoted exactly one structural fix: a **0.10 minimum absolute short-leg delta** applied consistently to option feasibility and deterministic construction. It retained candidates on all five recent signal days, improved historical entry-print coverage from 40% to 80%, reduced mean width from 56.9 to 29.4 points, and preserved mean net delta near 0.370. A 12,000-trial post-fix indicative-surface stress produced zero risk-invariant violations. Signal threshold, beta, AI prompt/model, risk budget, decision window, and 10:55 exit remained frozen.
 
-The first real competition episode ran on 2026-09-01: read-only preflight passed, the opening MLeg filled, the deterministic research-horizon close filled on its first close attempt, and the persisted lifecycle finished `CLOSED`. This remains paper trading; final event P&L must be reported from the dedicated competition account rather than inferred from research or a single episode.
+A live episode checks the cross-market signal, opening confirmation, and a current 7–21 DTE COIN option chain, gathers read-only Alpaca MCP context, and asks a schema-bounded AI adjudicator for exactly one of three outputs: `continuation`, `reversion`, or `abstain`. The model cannot choose symbols, contracts, DTE, sizing, order prices, or exits. A deterministic spread constructor enforces approximately 0.45–0.65 absolute long delta, at least 0.10 absolute short delta, at least 0.30 absolute net directional delta, defined-risk debit economics, and the existing risk-derived one-contract budget.
 
-The public judge demo exposes the frozen research result, negative evidence, architecture, risk envelope, and verified development preflight without exposing trading controls, credentials, or a live account connection. ClockCross is paper-only and built around auditable abstention as much as trading.
+Competition entries are restricted to 09:55–10:05 ET. An opening Alpaca MLeg gets a fixed 180-second fill window and is canceled only when cancellation can be proven. A filled position exits at 10:55 ET using the exact opening contracts in a deterministic closing MLeg. Lifecycle state is persisted in SQLite so restarts reconcile known order identities instead of recomputing a signal or blindly retrying an ambiguous order.
+
+The first real competition episode ran on **2026-09-01**: the dedicated account passed preflight, the opening MLeg filled, the deterministic research-horizon close filled on its first close attempt, and the persisted lifecycle finished `CLOSED`. No unresolved opening/closing order remained and no undocumented manual trade-selection intervention occurred. This remains paper trading; final competition equity/P&L must come from the dedicated event account rather than from research diagnostics or proxy returns.
+
+The public judge demo is deliberately static and zero-secret. It exposes the falsification record, six-month replay, losing regimes, backtest-discovered constructor defect, bounded fix, Alpaca integration, deterministic risk envelope, and verified competition lifecycle without exposing trading controls, credentials, or a live account connection.
+
+## Historical option proxy — disclosure wording
+
+Alpaca historical option bars/trades do not reproduce arbitrary-past snapshot BBO/Greeks, so ClockCross does **not** claim an exact historical options-fill backtest. Historical trade prints are used only as a transparent price/liquidity proxy.
+
+After the 0.10 short-delta fix, two recent signal days had enough prints on both selected legs for a full 09:55–10:55 proxy:
+
+- **2026-08-18:** +$120 raw / +$100 after a $0.20 spread-friction stress.
+- **2026-08-21:** +$59 raw / +$39 after the same stress.
+- **2026-08-07, 2026-08-24, 2026-09-01:** insufficient prints on both selected legs; label **unobservable**, never win/loss.
 
 ## Suggested technology / category tags
 
@@ -49,6 +63,7 @@ The public judge demo exposes the frozen research result, negative evidence, arc
 - **Public GitHub repository:** https://github.com/AKzar1el/clockcross
 - **Judge demo platform:** Cloudflare Workers Static Assets
 - **Judge demo URL:** https://clockcross-demo.tomi-seregi99.workers.dev
+- **Six-month chronological replay:** `docs/research/2026-09-01-end-to-end-backtest.md`
 - **One-page technical write-up:** `docs/ONE_PAGE_WRITEUP.md`
 - **Operations / account discipline:** `docs/OPERATIONS.md`
 - **Submission gate:** `docs/SUBMISSION_CHECKLIST.md`
@@ -57,7 +72,7 @@ The public judge demo exposes the frozen research result, negative evidence, arc
 
 ### Lablab cover image
 
-Use **`hackathon-cover.png`** — 1600×900 PNG, approximately 166 KB.
+Use **`hackathon-cover.png`** — 1600×900 PNG.
 
 <p align="center">
   <img src="../deploy/cloudflare-demo/public/hackathon-cover.png" alt="ClockCross 16:9 hackathon cover" width="900">
@@ -67,11 +82,9 @@ Use **`hackathon-cover.png`** — 1600×900 PNG, approximately 166 KB.
 - Public HTTPS asset: https://clockcross-demo.tomi-seregi99.workers.dev/hackathon-cover.png
 - SVG master: `deploy/cloudflare-demo/public/hackathon-cover.svg`
 
-This is the primary submission cover and is also displayed at the top of the GitHub README.
-
 ### Website / link preview image
 
-Use **`og-image.png`** — 1200×630 PNG, approximately 132 KB.
+Use **`og-image.png`** — 1200×630 PNG.
 
 <p align="center">
   <img src="../deploy/cloudflare-demo/public/og-image.png" alt="ClockCross social and Open Graph preview" width="800">
@@ -81,13 +94,11 @@ Use **`og-image.png`** — 1200×630 PNG, approximately 132 KB.
 - Public HTTPS asset: https://clockcross-demo.tomi-seregi99.workers.dev/og-image.png
 - SVG master: `deploy/cloudflare-demo/public/og-image.svg`
 
-The judge demo already references this asset through Open Graph and Twitter-card metadata.
-
 ### GitHub social preview
 
 Recommended asset: `deploy/cloudflare-demo/public/og-image.png`.
 
-GitHub's repository social-preview control is a repository Settings UI upload rather than a tracked repository file. Upload this image manually under **Repository → Settings → Social preview → Edit → Upload an image**. The current 1200×630 solid-background PNG is above GitHub's documented 640×320 minimum and below the 1 MB limit.
+Upload manually under **Repository → Settings → Social preview → Edit → Upload an image**. The tracked 1200×630 PNG is suitable for the repository preview.
 
 ### Logo / application identity
 
@@ -103,43 +114,43 @@ GitHub's repository social-preview control is a repository Settings UI upload ra
 - PWA icons: `deploy/cloudflare-demo/public/icon-192.png`, `deploy/cloudflare-demo/public/icon-512.png`
 - Manifest: `deploy/cloudflare-demo/public/site.webmanifest`
 
-These are already wired into the deployed judge demo.
-
 ## Video presentation structure
 
-Aim for a compact judge-first recording rather than a feature tour.
+Aim for a compact judge-first recording. The differentiation is not “another AI trading dashboard”; it is a traceable falsification-and-correction loop that actually changed production behavior.
 
-1. **0:00–0:25 — Problem / thesis**  
-   BTC trades 24/7; COIN options do not. ClockCross measures unexplained repricing rather than blindly following BTC.
-2. **0:25–1:10 — Evidence**  
-   Show the frozen `MUTATE` result, COIN evidence, MSTR deterioration, QQQ control, and failed 100 bps friction test.
-3. **1:10–2:00 — Autonomous pipeline**  
-   Residual → confirmation → option feasibility → Alpaca MCP context → bounded AI → deterministic spread selection/risk → Alpaca MLeg paper entry → bounded fill lifecycle → deterministic 10:55 exit.
-4. **2:00–2:45 — Safety / AI authority**  
-   Explain the three AI outputs, fail-closed abstention, COIN-only scope, 7–21 DTE debit spreads, deterministic sizing, deterministic exit and idempotency.
-5. **2:45–3:35 — Demo**  
-   Walk the judge demo and show the 2026-09-01 real competition episode plus its ledger/Alpaca evidence.
-6. **3:35–4:15 — Alpaca integration**  
-   Show MCP read-only context, current chain feasibility, paper MLeg entry/close execution, deterministic reconciliation, and competition-account discipline.
-7. **4:15–4:30 — Close**  
-   ClockCross is built to reject weak evidence, abstain when uncertain, and expose exactly why it acted or did not act.
+1. **0:00–0:25 — Thesis**  
+   BTC trades 24/7; COIN options do not. ClockCross measures unexplained repricing instead of blindly following BTC.
+2. **0:25–1:00 — The system was allowed to say no**  
+   Show `MUTATE`, COIN survival, MSTR deterioration, QQQ control, and the failed 100 bps promotion gate.
+3. **1:00–1:45 — Literal six-month replay**  
+   Show 128 market days, 36 AI trades / 3 AI abstentions, 21-15, 58.3%, +50.7 bps mean, plus June/July negative regimes.
+4. **1:45–2:30 — The backtest found a bug**  
+   Show near-zero-delta lottery shorts, the 0.10 short-delta structural floor, width/print-coverage improvement, and 12,000-trial post-fix stress.
+5. **2:30–3:10 — Bounded autonomous pipeline**  
+   Residual → confirmation → option feasibility → Alpaca MCP → bounded AI → deterministic constructor/risk → Alpaca MLeg → persisted lifecycle.
+6. **3:10–3:45 — Real competition episode**  
+   Show 2026-09-01 preflight, opening fill, deterministic 10:55 exact-contract close, terminal `CLOSED`.
+7. **3:45–4:15 — Alpaca integration + abstention**  
+   Show historical/market data, options data, read-only MCP context, Trading API MLegs, threshold/data/AI abstentions, reconciliation, and separate competition-account discipline.
+8. **4:15–4:30 — Close**  
+   ClockCross is designed to reject weak evidence, expose losing regimes, fix structural defects without parameter mining, and execute only inside a deterministic defined-risk envelope.
 
 ## Slide-deck content map
 
 1. **ClockCross** — one-line thesis + cover visual.
-2. **The timing problem** — BTC 24/7 vs U.S. option hours; naive overnight-following thesis rejected.
-3. **Research before execution** — chronological design and frozen `MUTATE` verdict.
-4. **What survived** — COIN evidence, MSTR negative evidence, QQQ control, failed friction test.
-5. **Autonomous system** — end-to-end architecture diagram.
-6. **AI is bounded** — continuation / reversion / abstain; deterministic authority boundaries.
-7. **Defined-risk lifecycle** — 7–21 DTE COIN debit spreads, directional spread selection, risk caps, bounded fill, 10:55 exit, idempotency and reconciliation.
-8. **Alpaca integration** — historical/data feeds, MCP read-only context, Trading API MLeg paper entry and close.
-9. **Evidence console** — judge-demo screenshot + verified preflight and first competition lifecycle.
-10. **Competition proof** — final account equity/P&L, trades + abstentions, and submission links.
+2. **The timing problem** — BTC 24/7 vs U.S. option hours; residual rather than naive overnight following.
+3. **Research can reject the thesis** — frozen `MUTATE`, COIN/MSTR/QQQ, failed 100 bps gate.
+4. **Six-month chronological replay** — 128 market days, 36 AI trades, 3 AI abstentions, 21-15, 58.3%, +50.7 bps; June/July negative regimes visible.
+5. **The backtest found a production bug** — near-zero-delta shorts and the 0.10 structural correction.
+6. **What changed / what stayed frozen** — short-delta floor changed; signal, AI, timing, risk budget did not.
+7. **Autonomous system** — end-to-end architecture diagram.
+8. **AI is bounded** — continuation / reversion / abstain; deterministic authority boundaries.
+9. **Defined-risk lifecycle** — 7–21 DTE COIN debit spreads, delta gates, risk caps, bounded fill, 10:55 exit, idempotency/recovery.
+10. **Alpaca integration + competition proof** — data, MCP, Trading API, verified 2026-09-01 `CLOSED` lifecycle, final event account equity/P&L when available.
 
 ## Final fields still pending external/user evidence
 
-- Dedicated competition Alpaca paper account ID for the submission form.
+- Dedicated competition Alpaca paper account identifier for the submission form.
 - Final competition account P&L/equity after the event run is complete.
 - Final selected competition trade/abstention screenshots.
 - Video URL.
@@ -148,8 +159,8 @@ Aim for a compact judge-first recording rather than a feature tour.
 
 ## Final repository handoff
 
-The competition lifecycle is already on `main` and the 2026-09-01 autonomous paper lifecycle is externally proven. The current post-episode correction is intentionally narrower: it changes only deterministic option-spread construction/observability so the selected vertical retains meaningful directional exposure under the **same** signal, AI action set, COIN-only universe, 7–21 DTE window, one-contract sizing, 1%/5% defined-loss envelope, decision window, MLeg lifecycle, and 10:55 ET exit.
+The competition lifecycle and post-episode constructor correction are already merged to `main`. The 0.10 short-delta floor is intentionally narrow: it changes deterministic spread quality/observability while preserving the same signal, AI action set, COIN-only universe, 7–21 DTE window, one-contract sizing, 1%/5% defined-loss envelope, 09:55–10:05 decision window, MLeg lifecycle, and 10:55 ET exit.
 
-GitHub cron scheduling is no longer part of the operational design. The checked-in competition workflow uses the path-scoped `ops/competition-run-now` push trigger on `main`, with `workflow_dispatch` as recovery, while the application itself remains the final timing gate.
+GitHub cron scheduling is not part of the operational design. The checked-in competition workflow uses the path-scoped `ops/competition-run-now` push trigger on `main`, with `workflow_dispatch` as recovery, while the application remains the final timing gate.
 
-Before any final submission, require the complete CI suite to be green on the merged commit, capture final competition account P&L/equity, add the real competition evidence to the demo/submission media, and complete the remaining Lablab/video/slide fields in `docs/SUBMISSION_CHECKLIST.md`.
+Before final submission: require green CI on the final merged commit, capture final competition account equity/P&L, add the final account/trade evidence to submission media without exposing secrets, upload the GitHub social preview, complete video/slides, and fill the remaining Lablab fields in `docs/SUBMISSION_CHECKLIST.md`.
