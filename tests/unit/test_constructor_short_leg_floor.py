@@ -29,7 +29,9 @@ def test_default_constructor_rejects_near_zero_delta_call_short() -> None:
         contracts=[
             contract("LONG", 180, "call", 0.55, 4.8, 5.0),
             contract("SHORT_MEANINGFUL", 195, "call", 0.15, 1.0, 1.2),
-            contract("SHORT_LOTTERY", 235, "call", 0.02, 0.05, 0.10),
+            # This quote is liquid enough for the existing 25% spread guard and
+            # deliberately wins net-delta-per-debit unless a short-delta floor exists.
+            contract("SHORT_LOTTERY", 235, "call", 0.02, 0.08, 0.09),
         ],
     )
 
@@ -47,7 +49,7 @@ def test_default_constructor_rejects_near_zero_delta_put_short() -> None:
         contracts=[
             contract("LONG", 180, "put", -0.55, 4.8, 5.0),
             contract("SHORT_MEANINGFUL", 165, "put", -0.15, 1.0, 1.2),
-            contract("SHORT_LOTTERY", 125, "put", -0.02, 0.05, 0.10),
+            contract("SHORT_LOTTERY", 125, "put", -0.02, 0.08, 0.09),
         ],
     )
 
