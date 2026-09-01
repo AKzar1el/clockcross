@@ -1,0 +1,103 @@
+{
+  "historical_stock_feed": "sip",
+  "history_start": "2024-10-01",
+  "research_sample_start": "2025-01-02",
+  "research_sample_end": "2026-08-28",
+  "study_type": "frozen 1pct residual boundary robustness",
+  "study": {
+    "policy": "coin-continuation-beta40-raw1pct-2026-08-29",
+    "minimum_training_count": 40,
+    "eligible_episode_count": 341,
+    "sample_start": "2025-01-02",
+    "sample_end": "2026-08-28",
+    "tested_thresholds": [0.008, 0.009, 0.01, 0.011, 0.012],
+    "baseline_threshold": 0.01,
+    "local_lower_threshold": 0.009,
+    "local_upper_threshold": 0.011,
+    "min_signal_count": 20,
+    "local_boundary_robust": true,
+    "local_boundary_warnings": [],
+    "live_threshold_change_recommended": false,
+    "thresholds": {
+      "0.008": {
+        "count": 158,
+        "mean_signed_return": 0.002479952157,
+        "median_signed_return": 0.003200948116,
+        "hit_rate": 0.550632911392,
+        "baseline_overlap_count": 117,
+        "baseline_overlap_rate": 1.0,
+        "baseline_share_of_selected": 0.740506329114,
+        "yearly": {
+          "2025": {"count": 89, "mean_signed_return": 0.002272234662, "median_signed_return": 0.000471775669, "hit_rate": 0.516853932584},
+          "2026": {"count": 69, "mean_signed_return": 0.002747877622, "median_signed_return": 0.005704971475, "hit_rate": 0.594202898551}
+        }
+      },
+      "0.009": {
+        "count": 133,
+        "mean_signed_return": 0.003235169892,
+        "median_signed_return": 0.00357583569,
+        "hit_rate": 0.556390977444,
+        "baseline_overlap_count": 117,
+        "baseline_overlap_rate": 1.0,
+        "baseline_share_of_selected": 0.87969924812,
+        "yearly": {
+          "2025": {"count": 74, "mean_signed_return": 0.00322445365, "median_signed_return": 0.000983194511, "hit_rate": 0.527027027027},
+          "2026": {"count": 59, "mean_signed_return": 0.003248610602, "median_signed_return": 0.005704971475, "hit_rate": 0.593220338983}
+        }
+      },
+      "0.010": {
+        "count": 117,
+        "mean_signed_return": 0.004238703014,
+        "median_signed_return": 0.004744228586,
+        "hit_rate": 0.581196581197,
+        "baseline_overlap_count": 117,
+        "baseline_overlap_rate": 1.0,
+        "baseline_share_of_selected": 1.0,
+        "yearly": {
+          "2025": {"count": 68, "mean_signed_return": 0.00381839692, "median_signed_return": 0.003149121743, "hit_rate": 0.544117647059},
+          "2026": {"count": 49, "mean_signed_return": 0.00482198494, "median_signed_return": 0.006005543579, "hit_rate": 0.632653061224}
+        }
+      },
+      "0.011": {
+        "count": 106,
+        "mean_signed_return": 0.00481614704,
+        "median_signed_return": 0.005329283041,
+        "hit_rate": 0.584905660377,
+        "baseline_overlap_count": 106,
+        "baseline_overlap_rate": 0.905982905983,
+        "baseline_share_of_selected": 1.0,
+        "yearly": {
+          "2025": {"count": 62, "mean_signed_return": 0.003586065761, "median_signed_return": 0.002152669541, "hit_rate": 0.532258064516},
+          "2026": {"count": 44, "mean_signed_return": 0.006549443388, "median_signed_return": 0.006580610832, "hit_rate": 0.659090909091}
+        }
+      },
+      "0.012": {
+        "count": 91,
+        "mean_signed_return": 0.003876401355,
+        "median_signed_return": 0.004744228586,
+        "hit_rate": 0.56043956044,
+        "baseline_overlap_count": 91,
+        "baseline_overlap_rate": 0.777777777778,
+        "baseline_share_of_selected": 1.0,
+        "yearly": {
+          "2025": {"count": 53, "mean_signed_return": 0.001936794954, "median_signed_return": 0.000247712926, "hit_rate": 0.509433962264},
+          "2026": {"count": 38, "mean_signed_return": 0.006581641862, "median_signed_return": 0.006580610832, "hit_rate": 0.631578947368}
+        }
+      }
+    },
+    "boundary_shells": {
+      "0.009-0.010": {"count": 16, "mean_signed_return": -0.004103166065, "median_signed_return": -0.007870213321, "hit_rate": 0.375},
+      "0.010-0.011": {"count": 11, "mean_signed_return": -0.0013257576, "median_signed_return": 0.003043598561, "hit_rate": 0.545454545455}
+    },
+    "interpretation": "Robustness diagnostic only; retrospective threshold ranking must not be used to retune the frozen live 1% gate."
+  },
+  "sep1_external": {
+    "session_date": "2026-09-01",
+    "training_count": 40,
+    "residual": -0.017118157841602956,
+    "absolute_residual": 0.017118157841602956,
+    "passes_thresholds": {"0.008": true, "0.009": true, "0.010": true, "0.011": true, "0.012": true},
+    "note": "External-only; excluded from boundary assessment."
+  },
+  "note": "Read-only historical study. No trading/execution client was instantiated and no order endpoint was called."
+}
