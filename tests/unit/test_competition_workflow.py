@@ -8,14 +8,16 @@ def workflow_text() -> str:
     return WORKFLOW.read_text()
 
 
-def test_competition_workflow_uses_external_trigger_and_is_secret_backed():
+def test_competition_workflow_has_redundant_sep3_sep4_launchers_and_is_secret_backed():
     text = workflow_text()
-    assert "\n  schedule:" not in text
-    assert "cron:" not in text
     assert "push:" in text
     assert "branches:" in text
     assert "- main" in text
     assert '"ops/competition-run-now"' in text
+    assert "schedule:" in text
+    assert 'cron: "35 9 3-4 9 *"' in text
+    assert 'cron: "45 9 3-4 9 *"' in text
+    assert 'timezone: "America/New_York"' in text
     assert "workflow_dispatch:" in text
     assert "environment: competition" in text
     assert "github.ref == 'refs/heads/main'" in text
@@ -37,9 +39,9 @@ def test_competition_workflow_uses_external_trigger_and_is_secret_backed():
         assert session_date in text
 
 
-def test_competition_workflow_records_external_trigger_context_for_diagnostics():
+def test_competition_workflow_records_trigger_context_for_diagnostics():
     text = workflow_text()
-    assert "github.event.schedule" not in text
+    assert "github.event.schedule" in text
     assert "github.event_name" in text
     assert "github.run_id" in text
     assert "GITHUB_STEP_SUMMARY" in text
