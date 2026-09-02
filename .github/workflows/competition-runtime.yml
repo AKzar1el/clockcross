@@ -6,6 +6,13 @@ on:
       - main
     paths:
       - "ops/competition-run-now"
+  # Redundant off-top-of-hour fallbacks for the two remaining competition sessions.
+  # The runtime itself waits until 09:55 ET and refuses new entries after 10:05 ET.
+  schedule:
+    - cron: "35 9 3-4 9 *"
+      timezone: "America/New_York"
+    - cron: "45 9 3-4 9 *"
+      timezone: "America/New_York"
   workflow_dispatch:
     inputs:
       session_date:
@@ -78,6 +85,7 @@ jobs:
           {
             echo "### Competition runtime trigger"
             echo "- Event: ${{ github.event_name }}"
+            echo "- Schedule: ${{ github.event.schedule || 'external/manual' }}"
             echo "- Session: ${{ steps.session.outputs.session_date }}"
             echo "- Run ID: ${{ github.run_id }}"
           } >> "$GITHUB_STEP_SUMMARY"
