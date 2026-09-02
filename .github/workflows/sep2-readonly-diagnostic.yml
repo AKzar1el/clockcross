@@ -1,0 +1,86 @@
+name: Sep 2 Read-Only Diagnostic
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/sep2-readonly-diagnostic.yml"
+
+permissions:
+  contents: read
+
+env:
+  ALPACA_API_KEY: ${{ secrets.ALPACA_COMPETITION_API_KEY }}
+  ALPACA_SECRET_KEY: ${{ secrets.ALPACA_COMPETITION_SECRET_KEY }}
+
+jobs:
+  reconstruct:
+    runs-on: ubuntu-latest
+    environment: competition
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --extra dev
+      - name: Reconstruct Sep 2 frozen signal and 60m outcome
+        shell: bash
+        run: |
+          uv run python - <<'PY'
+          import json
+          import os
+          from datetime import date, datetime, timezone
+          import pandas as pd
+
+          from clockcross.alpaca.historical import AlpacaRestHistoryClient, HistoricalDataGateway
+          from clockcross.research.episodes import build_episode_frame
+
+          key = os.environ["ALPACA_API_KEY"]
+          secret = os.environ["ALPACA_SECRET_KEY"]
+          client = AlpacaRestHistoryClient(key, secret)
+          gateway = HistoricalDataGateway(
+              lambda symbol, start, end: client.fetch_stock_bars(symbol, start, end, feed="sip"),
+              lambda symbol, start, end: client.fetch_crypto_bars(symbol, start, end),
+              stock_feed="sip",
+              crypto_feed="alpaca",
+          )
+
+          start = datetime(2026, 6, 1, tzinfo=timezone.utc)
+          end = datetime(2026, 9, 2, 16, 5, tzinfo=timezone.utc)
+          coin = gateway.fetch_stock_minutes("COIN", start, end)
+          btc = gateway.fetch_crypto_minutes("BTC/USD", start, end)
+          sessions = [d.date() for d in pd.bdate_range("2026-06-01", "2026-09-02")]
+          frame = build_episode_frame(btc, coin, sessions=sessions, beta_lookback=40)
+          row = frame.loc[frame["session_date"] == date(2026, 9, 2)].iloc[-1]
+
+          fields = [
+              "session_date", "training_count", "beta", "btc_return",
+              "equity_premarket_return", "expected_return", "residual",
+              "open_10m_return", "forward_15m_return", "forward_30m_return",
+              "forward_45m_return", "forward_60m_return",
+          ]
+          payload = {}
+          for field in fields:
+              value = row[field]
+              if hasattr(value, "item"):
+                  value = value.item()
+              if field == "session_date":
+                  value = str(value)
+              payload[field] = value
+          payload["abs_residual_gate_pass"] = abs(float(row["residual"])) >= 0.01
+          payload["frozen_continuation_direction"] = "bullish" if float(row["residual"]) > 0 else "bearish"
+          payload["frozen_continuation_60m_signed_return"] = (
+              float(row["forward_60m_return"]) if float(row["residual"]) > 0
+              else -float(row["forward_60m_return"])
+          )
+          print(json.dumps(payload, indent=2, sort_keys=True))
+          with open("sep2-diagnostic.json", "w", encoding="utf-8") as fh:
+              json.dump(payload, fh, indent=2, sort_keys=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sep2-readonly-diagnostic
+          path: sep2-diagnostic.json
+          retention-days: 2
