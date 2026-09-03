@@ -9,7 +9,10 @@ import httpx
 from clockcross.agent.adjudicator import AgentContext
 from clockcross.agent.prompts import SYSTEM_PROMPT, build_user_prompt
 from clockcross.domain import AgentAction, AgentDecision, AgentDriver
-from clockcross.research.featherless_bakeoff import BudgetLedger
+from clockcross.research.featherless_bakeoff import (
+    BudgetLedger,
+    prompt_token_upper_bound,
+)
 
 from featherless_bakeoff.config import FEATHERLESS_BASE_URL, MAX_TOKENS
 
@@ -65,9 +68,16 @@ class FeatherlessResearchClient:
             raise RuntimeError("model/plan context length is unavailable")
         return min(candidates)
 
-    def worst_case_cost(self, detail: dict[str, Any]) -> float:
+    def worst_case_cost(
+        self, detail: dict[str, Any], *, message_contents: list[str]
+    ) -> float:
         prompt_price, completion_price, request_price = self._prices(detail)
-        prompt_tokens = max(0, self.effective_context(detail) - MAX_TOKENS)
+        prompt_tokens = prompt_token_upper_bound(
+            message_contents,
+            context_limit=self.effective_context(detail),
+            completion_tokens=MAX_TOKENS,
+            chat_overhead_tokens=1024,
+        )
         return prompt_tokens * prompt_price + MAX_TOKENS * completion_price + request_price
 
     def _post(self, body: dict[str, Any]) -> httpx.Response:
@@ -97,7 +107,10 @@ class FeatherlessResearchClient:
         detail: dict[str, Any],
         context: AgentContext,
     ) -> tuple[AgentDecision, bool, dict[str, Any]]:
-        worst_case = self.worst_case_cost(detail)
+        user_prompt = build_user_prompt(context)
+        worst_case = self.worst_case_cost(
+            detail, message_contents=[SYSTEM_PROMPT, user_prompt]
+        )
         if not self._budget.can_start(worst_case_cost_usd=worst_case):
             raise BudgetStop("hard Featherless research budget would be exceeded")
         response = self._post(
@@ -105,10 +118,11 @@ class FeatherlessResearchClient:
                 "model": model,
                 "messages": [
                     {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": build_user_prompt(context)},
+                    {"role": "user", "content": user_prompt},
                 ],
                 "temperature": 0,
                 "max_tokens": MAX_TOKENS,
+                "chat_template_kwargs": {"enable_thinking": False},
             }
         )
         response.raise_for_status()
@@ -123,7 +137,12 @@ class FeatherlessResearchClient:
             completion_tokens = int(usage.get("completion_tokens") or 0)
             usage_missing = False
         else:
-            prompt_tokens = max(0, self.effective_context(detail) - MAX_TOKENS)
+            prompt_tokens = prompt_token_upper_bound(
+                [SYSTEM_PROMPT, user_prompt],
+                context_limit=self.effective_context(detail),
+                completion_tokens=MAX_TOKENS,
+                chat_overhead_tokens=1024,
+            )
             completion_tokens = MAX_TOKENS
             usage_missing = True
         cost = self._budget.record_success(
