@@ -164,6 +164,17 @@ def test_scheduler_applies_risk_budget_and_records_directional_exposure(tmp_path
         assert result.candidate.short_leg.symbol == "COIN_SHORT_FAR"
         assert risk.constructor_budget_calls == 1
 
+        shadow_input = ledger.get_latest_mark_payload(
+            result.episode_id, "featherless_shadow_input"
+        )
+        assert shadow_input is not None
+        assert shadow_input["context"]["underlying"] == "COIN"
+        assert shadow_input["context"]["residual"] == -0.0171
+        assert shadow_input["context"]["opening_10m_return"] == -0.0143
+        assert shadow_input["context"]["news_summary"] == "[[]]"
+        assert shadow_input["authoritative_decision"]["action"] == "reversion"
+        assert shadow_input["authoritative_decision"]["driver"] == "macro"
+
         row = ledger._conn.execute(
             "SELECT payload_json FROM marks WHERE episode_id = ? AND value = ?",
             (result.episode_id, "spread_candidate"),
