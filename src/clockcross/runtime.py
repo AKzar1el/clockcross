@@ -444,6 +444,7 @@ def build_competition_runtime(
 
     import time as time_module
 
+    from clockcross.agent.shadow import FeatherlessShadowObserver
     from clockcross.competition import CompetitionOrchestrator, CompetitionPolicy
     from clockcross.trading.exit import build_close_instruction
 
@@ -465,6 +466,11 @@ def build_competition_runtime(
             max_close_attempts=settings.competition_max_close_attempts,
             latest_entry_time_et=settings.competition_latest_entry_time,
         )
+        shadow_observer = None
+        if settings.featherless_api_key:
+            shadow_observer = FeatherlessShadowObserver(
+                api_key=settings.featherless_api_key
+            )
         orchestrator = CompetitionOrchestrator(
             ledger=runtime.ledger,
             scheduler=runtime.scheduler,
@@ -475,6 +481,7 @@ def build_competition_runtime(
             now=runtime.clock,
             sleeper=time_module.sleep,
             close_builder=build_close_instruction,
+            shadow_observer=shadow_observer,
         )
         return CompetitionRuntimeBundle(orchestrator=orchestrator, runtime=runtime)
     except Exception:
