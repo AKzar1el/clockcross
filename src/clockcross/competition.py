@@ -7,7 +7,8 @@ from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field
 
-from clockcross.domain import EpisodeState
+from clockcross.agent.adjudicator import AgentContext
+from clockcross.domain import AgentDecision, EpisodeState
 from clockcross.ledger import Ledger, OrderRecord
 from clockcross.trading.execution import CloseInstruction, ExecutionResult
 
@@ -61,6 +62,7 @@ class CompetitionOrchestrator:
         now: Callable[[], datetime],
         sleeper: Callable[[float], None],
         close_builder: CloseBuilder,
+        shadow_observer: Any | None = None,
     ) -> None:
         self._ledger = ledger
         self._scheduler = scheduler
@@ -71,6 +73,7 @@ class CompetitionOrchestrator:
         self._now = now
         self._sleep = sleeper
         self._close_builder = close_builder
+        self._shadow = shadow_observer
 
     def _current_time(self) -> datetime:
         current = self._now()
@@ -93,6 +96,53 @@ class CompetitionOrchestrator:
         if result is None:
             return fallback
         return result.status.lower()
+
+    def _observe_shadow_once(
+        self, episode_id: str, *, skip_reason: str | None = None
+    ) -> None:
+        if self._shadow is None:
+            return
+        if self._ledger.get_latest_mark_payload(episode_id, "featherless_shadow") is not None:
+            return
+        payload = self._ledger.get_latest_mark_payload(
+            episode_id, "featherless_shadow_input"
+        )
+        if payload is None:
+            return
+
+        if skip_reason is not None:
+            audit_payload: dict[str, Any] = {
+                "status": "skipped",
+                "reason": skip_reason,
+            }
+        else:
+            try:
+                raw_context = payload.get("context")
+                raw_authoritative = payload.get("authoritative_decision")
+                context = AgentContext.model_validate(raw_context)
+                authoritative = AgentDecision.model_validate(raw_authoritative)
+                audit = self._shadow.observe(context, authoritative)
+                if isinstance(audit, BaseModel):
+                    audit_payload = audit.model_dump(mode="json")
+                elif isinstance(audit, dict):
+                    audit_payload = dict(audit)
+                else:
+                    audit_payload = {
+                        "status": "invalid",
+                        "reason": "observer_return_shape",
+                    }
+            except Exception:
+                audit_payload = {
+                    "status": "unavailable",
+                    "reason": "observer_exception",
+                }
+
+        self._ledger.record_mark(
+            episode_id,
+            marked_at=self._current_time(),
+            value="featherless_shadow",
+            payload=audit_payload,
+        )
 
     def _result(
         self,
@@ -119,6 +169,7 @@ class CompetitionOrchestrator:
             EpisodeState.ABSTAINED,
             EpisodeState.CLOSED,
         }:
+            self._observe_shadow_once(existing.episode_id)
             return self._result(session_date, existing.state, reason="terminal_episode")
 
         entry = datetime.combine(session_date, self._policy.entry_time_et, tzinfo=ET)
@@ -153,6 +204,7 @@ class CompetitionOrchestrator:
                 return timing_result
             summary = self._scheduler.run_session(session_date, mode="paper")
             if summary.state in {EpisodeState.ABSTAINED, EpisodeState.CLOSED}:
+                self._observe_shadow_once(summary.episode_id)
                 return self._result(
                     session_date,
                     summary.state,
@@ -173,9 +225,15 @@ class CompetitionOrchestrator:
                 EpisodeState.MONITORING,
                 event="resume_filled_position",
             )
+            self._observe_shadow_once(
+                episode.episode_id, skip_reason="resume_monitoring_safety"
+            )
             episode = self._ledger.get_episode(episode.episode_id)
             assert episode is not None
         if episode.state is EpisodeState.MONITORING:
+            self._observe_shadow_once(
+                episode.episode_id, skip_reason="resume_monitoring_safety"
+            )
             open_order = self._require_open_order(episode.episode_id)
             return self._manage_monitoring(
                 session_date,
@@ -191,6 +249,7 @@ class CompetitionOrchestrator:
                 initial=None,
             )
         if episode.state in {EpisodeState.ORDER_CANCELLED, EpisodeState.ORDER_REJECTED}:
+            self._observe_shadow_once(episode.episode_id)
             closed = self._ledger.transition(
                 episode.episode_id,
                 EpisodeState.CLOSED,
@@ -198,6 +257,7 @@ class CompetitionOrchestrator:
             )
             return self._result(session_date, closed.state, reason="opening_order_terminal")
         if episode.state in {EpisodeState.ABSTAINED, EpisodeState.CLOSED}:
+            self._observe_shadow_once(episode.episode_id)
             return self._result(session_date, episode.state, reason="terminal_episode")
 
         raise RuntimeError(
@@ -222,10 +282,12 @@ class CompetitionOrchestrator:
             if status == "partially_filled":
                 raise RuntimeError("partially filled opening MLeg requires explicit reconciliation")
             if summary.state is EpisodeState.MONITORING:
+                self._observe_shadow_once(episode_id)
                 return self._manage_monitoring(
                     session_date, episode_id, entry_status=status or "filled"
                 )
             if summary.state is EpisodeState.CLOSED:
+                self._observe_shadow_once(episode_id)
                 return self._result(
                     session_date,
                     EpisodeState.CLOSED,
@@ -253,6 +315,7 @@ class CompetitionOrchestrator:
                             raise RuntimeError(
                                 "opening cancellation reached unexpected terminal status"
                             )
+                        self._observe_shadow_once(episode_id)
                         return self._result(
                             session_date,
                             EpisodeState.CLOSED,
