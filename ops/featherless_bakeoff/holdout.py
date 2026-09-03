@@ -16,6 +16,7 @@ from clockcross.research.featherless_bakeoff import (
 )
 
 from featherless_bakeoff.config import (
+    DIRECTIONAL_NEWS_BOUNDARY,
     HOLDOUT_DATES,
     RAW_RESIDUAL_GATE,
     RECORDED_COMPANY_NEWS_VETO_DATES,
@@ -61,8 +62,10 @@ def run_holdout(
             )
             continue
 
-        news_summary, metadata = news.summary(session_date)
-        context = build_context(row, frame=frame, news_summary=news_summary)
+        _, metadata = news.summary(session_date)
+        context = build_context(
+            row, frame=frame, news_summary=DIRECTIONAL_NEWS_BOUNDARY
+        )
         incumbent_decision = incumbent.decide(context)
         observations: list[dict[str, Any]] = []
         actions: list[Action] = []
