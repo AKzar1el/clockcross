@@ -130,3 +130,20 @@ def test_prompt_token_upper_bound_respects_context_ceiling() -> None:
         chat_overhead_tokens=1_024,
     )
     assert bound == 3_876
+
+
+def test_glm_53_uses_low_reasoning_and_larger_bounded_json_budget() -> None:
+    from clockcross.research.featherless_bakeoff import generation_policy
+
+    glm = generation_policy("zai-org/GLM-5.3")
+    glm_flash = generation_policy("zai-org/GLM-5.3-Flash")
+    deepseek = generation_policy("deepseek-ai/DeepSeek-V4-Flash-0731")
+
+    assert glm.max_tokens == 512
+    assert glm.reasoning_effort == "low"
+    assert glm.disable_thinking is True
+    assert glm_flash == glm
+
+    assert deepseek.max_tokens == 220
+    assert deepseek.reasoning_effort is None
+    assert deepseek.disable_thinking is True
