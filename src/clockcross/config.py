@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     )
     llm_api_key: str | None = None
     llm_model: str | None = "clockcross-cloudflare-llama-3.3-70b"
+    featherless_api_key: str | None = None
     clockcross_account_role: Literal["development", "competition"] = "development"
     clockcross_allow_dev_order: bool = False
     competition_starting_equity: Decimal = Decimal(100000)

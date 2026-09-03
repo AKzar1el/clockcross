@@ -261,6 +261,13 @@ class Ledger:
                 (episode_id, marked_at.isoformat(), value, _json(payload or {})),
             )
 
+    def get_latest_mark_payload(self, episode_id: str, value: str) -> dict[str, Any] | None:
+        row = self._conn.execute(
+            "SELECT payload_json FROM marks WHERE episode_id = ? AND value = ? ORDER BY mark_id DESC LIMIT 1",
+            (episode_id, value),
+        ).fetchone()
+        return None if row is None else _decode(row["payload_json"])
+
     def count_rows(self, table: str) -> int:
         if table not in self._COUNTABLE_TABLES:
             raise ValueError("unsupported table")
