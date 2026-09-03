@@ -1,0 +1,91 @@
+{
+  "study": "clockcross_featherless_predeclared_bakeoff",
+  "decision": "no_production_authority_change",
+  "accepted_architecture": "cloudflare_authoritative_featherless_glm53_shadow_only",
+  "selection_window": ["2026-03-02", "2026-08-31"],
+  "selection_signal_count": 38,
+  "untouched_holdout": ["2026-09-01", "2026-09-02", "2026-09-03"],
+  "holdout_evaluated": false,
+  "holdout_reason": "no selection candidate cleared all predeclared gates",
+  "accepted_run": {
+    "github_actions_run_id": 33813521319,
+    "head_sha": "3693dd178b02bcef78abf41cfe460f26aeed6cd6",
+    "artifact_id": 9916320816,
+    "artifact_zip_sha256": "15cd10bc54f3a8b64aa8774ecce08628ba6bd8a7dfb7821bda4475b9a080e990",
+    "tests": "223 passed, 1 skipped",
+    "accounted_featherless_spend_usd": 0.30269687
+  },
+  "models": {
+    "zai-org/GLM-5.3": {
+      "valid_selection_calls": 190,
+      "stable_episodes": 26,
+      "total_episodes": 38,
+      "directional_replacement": {
+        "candidate_trade_count": 19,
+        "candidate_hit_rate": 0.5789473684210527,
+        "candidate_mean_policy_return": 0.0037131007026013,
+        "mean_improvement": 0.0009221707165122501,
+        "bootstrap_ci_low": -0.002747705659092814,
+        "bootstrap_ci_high": 0.00484242395839864,
+        "passes_selection_gates": false
+      },
+      "consensus_filter": {
+        "candidate_trade_count": 18,
+        "candidate_hit_rate": 0.6111111111111112,
+        "candidate_mean_policy_return": 0.003964769375322606,
+        "mean_improvement": 0.0011738393892335558,
+        "bootstrap_ci_low": -0.0023216118926589146,
+        "bootstrap_ci_high": 0.005090491073710597,
+        "leave_one_episode_out_min_mean_improvement": -0.00009129659937477551,
+        "leave_one_month_out_min_mean_improvement": -0.00033784203912161023,
+        "passes_selection_gates": false
+      },
+      "interpretation": "positive mean challenger but insufficient robustness/stability for authority; suitable for shadow model-risk observation"
+    },
+    "deepseek-ai/DeepSeek-V4-Flash-0731": {
+      "stable_episodes": 37,
+      "total_episodes": 38,
+      "candidate_trade_count": 7,
+      "candidate_hit_rate": 0.5714285714285714,
+      "candidate_mean_policy_return": 0.0008017719345230562,
+      "incumbent_mean_policy_return": 0.00279092998608905,
+      "mean_improvement": -0.0019891580515659936,
+      "bootstrap_ci_low": -0.007707078352008855,
+      "bootstrap_ci_high": 0.0036374498506856817,
+      "passes_selection_gates": false
+    },
+    "zai-org/GLM-5.3-Flash": {
+      "valid_selection_calls": 0,
+      "total_selection_calls": 190,
+      "finish_reason": "stop",
+      "failure": "schema JSONDecodeError",
+      "interpretation": "no model-quality conclusion"
+    },
+    "meta-llama/Llama-3.3-70B-Instruct": {
+      "selection_episodes_evaluated": 0,
+      "failure": "gated request rejected",
+      "interpretation": "no provider-control model-quality conclusion"
+    }
+  },
+  "promotion_gates": {
+    "paired_mean_improvement_gt_zero": true,
+    "paired_bootstrap_95pct_ci_low_gt_zero": true,
+    "leave_one_episode_out_min_mean_improvement_gt_zero": true,
+    "leave_one_month_out_min_mean_improvement_gt_zero": true,
+    "all_actions_stable": true,
+    "manual_inspection_required": true
+  },
+  "accounted_spend": {
+    "initial_diagnostic_usd": 0.36824601,
+    "duplicate_amended_nonaccepted_usd": 0.30035043,
+    "final_accepted_usd": 0.30269687,
+    "total_harness_accounted_usd": 0.97129331,
+    "note": "This is harness accounting, not a claim about live provider credit balance."
+  },
+  "limitations": [
+    "Historical raw REST news was excluded from model input because prior research showed it did not faithfully recreate the production MCP news context.",
+    "This is a paired directional decision study, not exact options P&L backtesting.",
+    "Arbitrary-past option BBO/Greeks are not invented.",
+    "No order or portfolio mutation endpoint was instantiated."
+  ]
+}
