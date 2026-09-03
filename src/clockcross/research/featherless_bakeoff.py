@@ -9,6 +9,31 @@ import numpy as np
 from numpy.typing import NDArray
 
 Action = Literal["continuation", "reversion", "abstain"]
+ReasoningEffort = Literal["low", "high", "max"]
+
+
+@dataclass(frozen=True)
+class GenerationPolicy:
+    max_tokens: int
+    disable_thinking: bool
+    reasoning_effort: ReasoningEffort | None = None
+
+
+def generation_policy(model: str) -> GenerationPolicy:
+    """Return the predeclared bounded generation settings for a Featherless model.
+
+    GLM-5.3 defaults to a large reasoning budget on Featherless. The first live
+    research run therefore exhausted the original 220-token cap before emitting
+    parseable JSON. This is an execution-layer amendment only: model set, prompt,
+    temperature, scoring, selection window, and holdout remain unchanged.
+    """
+    if model in {"zai-org/GLM-5.3", "zai-org/GLM-5.3-Flash"}:
+        return GenerationPolicy(
+            max_tokens=512,
+            disable_thinking=True,
+            reasoning_effort="low",
+        )
+    return GenerationPolicy(max_tokens=220, disable_thinking=True)
 
 
 def action_direction(action: Action, residual: float) -> int | None:
