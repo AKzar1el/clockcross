@@ -32,7 +32,7 @@ def _utc_start(day: date) -> datetime:
 
 
 def _utc_end(day: date) -> datetime:
-    return datetime.combine(day, time.max, tzinfo=timezone.utc)
+    return datetime.combine(day, time(10, 55), tzinfo=ET).astimezone(timezone.utc)
 
 
 def _summary(values: list[float]) -> dict[str, float | int | None]:
