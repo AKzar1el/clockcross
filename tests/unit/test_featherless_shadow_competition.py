@@ -253,7 +253,9 @@ def test_shadow_runs_only_after_opening_order_is_filled_and_is_persisted(tmp_pat
 
         assert result.state is EpisodeState.CLOSED
         assert len(shadow.calls) == 1
-        audit = ledger.get_latest_mark_payload(result.session_date.isoformat() if False else ledger.get_episode_for_session(SESSION, "COIN").episode_id, "featherless_shadow")
+        episode = ledger.get_episode_for_session(SESSION, "COIN")
+        assert episode is not None
+        audit = ledger.get_latest_mark_payload(episode.episode_id, "featherless_shadow")
         assert audit is not None
         assert audit["status"] == "ok"
         assert audit["action_agreement"] is False
