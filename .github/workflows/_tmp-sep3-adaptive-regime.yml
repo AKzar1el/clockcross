@@ -6,6 +6,7 @@ on:
       - research/sep3-adaptive-regime
     paths:
       - "scripts/research_sep3_adaptive_regime.py"
+      - "scripts/research_sep3_news_delay_replay.py"
       - ".github/workflows/_tmp-sep3-adaptive-regime.yml"
 
 permissions:
@@ -32,7 +33,7 @@ jobs:
           python-version: "3.12"
       - run: uv sync --extra dev
       - name: Run read-only adaptive-regime diagnostic
-        run: uv run python scripts/research_sep3_adaptive_regime.py
+        run: uv run python scripts/research_sep3_news_delay_replay.py
       - name: Upload result
         if: always()
         uses: actions/upload-artifact@v4
