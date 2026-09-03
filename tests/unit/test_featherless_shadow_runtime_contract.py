@@ -8,20 +8,22 @@ WORKFLOW = ROOT / ".github/workflows/competition-runtime.yml"
 RUNTIME = ROOT / "src/clockcross/runtime.py"
 
 
+def _settings_payload() -> dict[str, str]:
+    return {
+        "ALPACA_API_KEY": "your-key-here",
+        "ALPACA_SECRET_KEY": "your-secret-here",
+    }
+
+
 def test_settings_accept_optional_featherless_secret() -> None:
-    settings = Settings(
-        ALPACA_API_KEY="changeme",
-        ALPACA_SECRET_KEY="changeme",
-        FEATHERLESS_API_KEY="featherless-key",
-    )
+    payload = _settings_payload()
+    payload["FEATHERLESS_API_KEY"] = "featherless-key"
+    settings = Settings(**payload)
     assert settings.featherless_api_key == "featherless-key"
 
 
 def test_featherless_is_not_required_for_normal_runtime_settings() -> None:
-    settings = Settings(
-        ALPACA_API_KEY="changeme",
-        ALPACA_SECRET_KEY="changeme",
-    )
+    settings = Settings(**_settings_payload())
     assert settings.featherless_api_key is None
 
 
