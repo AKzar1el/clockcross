@@ -6,6 +6,7 @@ from datetime import date
 from typing import Literal, Sequence
 
 import numpy as np
+from numpy.typing import NDArray
 
 Action = Literal["continuation", "reversion", "abstain"]
 
@@ -73,6 +74,26 @@ class BudgetLedger:
         return self.spent_usd + worst_case_cost_usd <= self.max_spend_usd + 1e-12
 
 
+def prompt_token_upper_bound(
+    message_contents: Sequence[str],
+    *,
+    context_limit: int,
+    completion_tokens: int,
+    chat_overhead_tokens: int = 1024,
+) -> int:
+    if context_limit <= 0:
+        raise ValueError("context_limit must be positive")
+    if completion_tokens < 0 or completion_tokens >= context_limit:
+        raise ValueError("completion_tokens must fit inside context_limit")
+    if chat_overhead_tokens < 0:
+        raise ValueError("chat_overhead_tokens cannot be negative")
+    payload_bytes = sum(len(content.encode("utf-8")) for content in message_contents)
+    return min(
+        context_limit - completion_tokens,
+        payload_bytes + chat_overhead_tokens,
+    )
+
+
 @dataclass(frozen=True)
 class EpisodeScore:
     session_date: date
@@ -82,7 +103,9 @@ class EpisodeScore:
     stable: bool
 
 
-def _bootstrap_ci(values: np.ndarray, *, samples: int, seed: int) -> tuple[float, float]:
+def _bootstrap_ci(
+    values: NDArray[np.float64], *, samples: int, seed: int
+) -> tuple[float, float]:
     if samples <= 0:
         raise ValueError("bootstrap_samples must be positive")
     if values.size == 0:
