@@ -36,12 +36,7 @@ def test_consensus_filter_trades_only_same_non_abstain_action() -> None:
 
 def test_budget_uses_provider_pricing_and_refuses_worst_case_overrun() -> None:
     budget = BudgetLedger(max_spend_usd=15.0)
-    budget.record_success(
-        prompt_tokens=1_000,
-        completion_tokens=100,
-        prompt_price=0.000001,
-        completion_price=0.000002,
-    )
+    budget.record_success(prompt_tokens=1_000, completion_tokens=100, prompt_price=0.000001, completion_price=0.000002)
     assert budget.spent_usd == pytest.approx(0.0012)
     assert budget.can_start(worst_case_cost_usd=14.9987)
     assert not budget.can_start(worst_case_cost_usd=14.999)
@@ -49,27 +44,9 @@ def test_budget_uses_provider_pricing_and_refuses_worst_case_overrun() -> None:
 
 def test_policy_evaluation_counts_abstain_as_zero_and_is_paired() -> None:
     rows = [
-        EpisodeScore(
-            date(2026, 7, 1),
-            incumbent_return=0.01,
-            candidate_return=0.02,
-            candidate_traded=True,
-            stable=True,
-        ),
-        EpisodeScore(
-            date(2026, 7, 2),
-            incumbent_return=-0.01,
-            candidate_return=0.0,
-            candidate_traded=False,
-            stable=True,
-        ),
-        EpisodeScore(
-            date(2026, 8, 1),
-            incumbent_return=0.01,
-            candidate_return=0.03,
-            candidate_traded=True,
-            stable=True,
-        ),
+        EpisodeScore(date(2026, 7, 1), incumbent_return=0.01, candidate_return=0.02, candidate_traded=True, stable=True),
+        EpisodeScore(date(2026, 7, 2), incumbent_return=-0.01, candidate_return=0.0, candidate_traded=False, stable=True),
+        EpisodeScore(date(2026, 8, 1), incumbent_return=0.01, candidate_return=0.03, candidate_traded=True, stable=True),
     ]
     result = evaluate_policy(rows, bootstrap_samples=2000, seed=7)
     assert result["episode_count"] == 3
@@ -82,27 +59,10 @@ def test_policy_evaluation_counts_abstain_as_zero_and_is_paired() -> None:
 
 def test_holdout_dates_cannot_enter_selection_metrics() -> None:
     rows = [
-        EpisodeScore(
-            date(2026, 8, 31),
-            incumbent_return=0.0,
-            candidate_return=0.01,
-            candidate_traded=True,
-            stable=True,
-        ),
-        EpisodeScore(
-            date(2026, 9, 1),
-            incumbent_return=-1.0,
-            candidate_return=1.0,
-            candidate_traded=True,
-            stable=True,
-        ),
+        EpisodeScore(date(2026, 8, 31), incumbent_return=0.0, candidate_return=0.01, candidate_traded=True, stable=True),
+        EpisodeScore(date(2026, 9, 1), incumbent_return=-1.0, candidate_return=1.0, candidate_traded=True, stable=True),
     ]
-    result = evaluate_policy(
-        rows,
-        selection_end=date(2026, 8, 31),
-        bootstrap_samples=1000,
-        seed=3,
-    )
+    result = evaluate_policy(rows, selection_end=date(2026, 8, 31), bootstrap_samples=1000, seed=3)
     assert result["episode_count"] == 1
     assert result["mean_improvement"] == pytest.approx(0.01)
 
@@ -145,3 +105,28 @@ def test_promotion_requires_every_predeclared_gate() -> None:
     bad_stability = dict(good)
     bad_stability["all_actions_stable"] = False
     assert not passes_promotion_gates(bad_stability)
+
+
+def test_prompt_token_upper_bound_uses_payload_bytes_not_full_context() -> None:
+    from clockcross.research.featherless_bakeoff import prompt_token_upper_bound
+
+    bound = prompt_token_upper_bound(
+        ["abc", "defgh"],
+        context_limit=32_768,
+        completion_tokens=220,
+        chat_overhead_tokens=1_024,
+    )
+    assert bound == 1_032
+    assert bound < 32_768 - 220
+
+
+def test_prompt_token_upper_bound_respects_context_ceiling() -> None:
+    from clockcross.research.featherless_bakeoff import prompt_token_upper_bound
+
+    bound = prompt_token_upper_bound(
+        ["x" * 10_000],
+        context_limit=4_096,
+        completion_tokens=220,
+        chat_overhead_tokens=1_024,
+    )
+    assert bound == 3_876
