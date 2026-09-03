@@ -18,6 +18,11 @@ SELECTION_END = date(2026, 8, 31)
 HOLDOUT_DATES = (date(2026, 9, 1), date(2026, 9, 2), date(2026, 9, 3))
 RECORDED_COMPANY_NEWS_VETO_DATES = {date(2026, 9, 3)}
 FROZEN_RESEARCH_MEAN = 0.002745696957097104
+DIRECTIONAL_NEWS_BOUNDARY = (
+    "Directional bakeoff only. Retrospective raw news is intentionally excluded "
+    "because it cannot faithfully reproduce the live MCP payload. Do not infer "
+    "company-specific news from outside this context."
+)
 RAW_RESIDUAL_GATE = 0.01
 REPEATS = 5
 MAX_TOKENS = 220
