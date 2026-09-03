@@ -10,8 +10,8 @@ RUNTIME = ROOT / "src/clockcross/runtime.py"
 
 def test_settings_accept_optional_featherless_secret() -> None:
     settings = Settings(
-        ALPACA_API_KEY="alpaca-key",
-        ALPACA_SECRET_KEY="alpaca-secret",
+        ALPACA_API_KEY="your-key-here",
+        ALPACA_SECRET_KEY="your-secret-here",
         FEATHERLESS_API_KEY="featherless-key",
     )
     assert settings.featherless_api_key == "featherless-key"
@@ -19,8 +19,8 @@ def test_settings_accept_optional_featherless_secret() -> None:
 
 def test_featherless_is_not_required_for_normal_runtime_settings() -> None:
     settings = Settings(
-        ALPACA_API_KEY="alpaca-key",
-        ALPACA_SECRET_KEY="alpaca-secret",
+        ALPACA_API_KEY="your-key-here",
+        ALPACA_SECRET_KEY="your-secret-here",
     )
     assert settings.featherless_api_key is None
 
