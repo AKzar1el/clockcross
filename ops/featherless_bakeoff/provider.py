@@ -11,10 +11,12 @@ from clockcross.agent.prompts import SYSTEM_PROMPT, build_user_prompt
 from clockcross.domain import AgentAction, AgentDecision, AgentDriver
 from clockcross.research.featherless_bakeoff import (
     BudgetLedger,
+    GenerationPolicy,
+    generation_policy,
     prompt_token_upper_bound,
 )
 
-from featherless_bakeoff.config import FEATHERLESS_BASE_URL, MAX_TOKENS
+from featherless_bakeoff.config import FEATHERLESS_BASE_URL
 
 
 class BudgetStop(RuntimeError):
@@ -69,16 +71,24 @@ class FeatherlessResearchClient:
         return min(candidates)
 
     def worst_case_cost(
-        self, detail: dict[str, Any], *, message_contents: list[str]
+        self,
+        detail: dict[str, Any],
+        *,
+        message_contents: list[str],
+        policy: GenerationPolicy,
     ) -> float:
         prompt_price, completion_price, request_price = self._prices(detail)
         prompt_tokens = prompt_token_upper_bound(
             message_contents,
             context_limit=self.effective_context(detail),
-            completion_tokens=MAX_TOKENS,
+            completion_tokens=policy.max_tokens,
             chat_overhead_tokens=1024,
         )
-        return prompt_tokens * prompt_price + MAX_TOKENS * completion_price + request_price
+        return (
+            prompt_tokens * prompt_price
+            + policy.max_tokens * completion_price
+            + request_price
+        )
 
     def _post(self, body: dict[str, Any]) -> httpx.Response:
         response: httpx.Response | None = None
@@ -108,23 +118,31 @@ class FeatherlessResearchClient:
         context: AgentContext,
     ) -> tuple[AgentDecision, bool, dict[str, Any]]:
         user_prompt = build_user_prompt(context)
+        policy = generation_policy(model)
         worst_case = self.worst_case_cost(
-            detail, message_contents=[SYSTEM_PROMPT, user_prompt]
+            detail,
+            message_contents=[SYSTEM_PROMPT, user_prompt],
+            policy=policy,
         )
         if not self._budget.can_start(worst_case_cost_usd=worst_case):
             raise BudgetStop("hard Featherless research budget would be exceeded")
-        response = self._post(
-            {
-                "model": model,
-                "messages": [
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": user_prompt},
-                ],
-                "temperature": 0,
-                "max_tokens": MAX_TOKENS,
-                "chat_template_kwargs": {"enable_thinking": False},
-            }
-        )
+
+        body: dict[str, Any] = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": 0,
+            "max_tokens": policy.max_tokens,
+            "chat_template_kwargs": {
+                "enable_thinking": not policy.disable_thinking,
+            },
+        }
+        if policy.reasoning_effort is not None:
+            body["reasoning_effort"] = policy.reasoning_effort
+
+        response = self._post(body)
         response.raise_for_status()
         payload = response.json()
         if not isinstance(payload, dict):
@@ -140,10 +158,10 @@ class FeatherlessResearchClient:
             prompt_tokens = prompt_token_upper_bound(
                 [SYSTEM_PROMPT, user_prompt],
                 context_limit=self.effective_context(detail),
-                completion_tokens=MAX_TOKENS,
+                completion_tokens=policy.max_tokens,
                 chat_overhead_tokens=1024,
             )
-            completion_tokens = MAX_TOKENS
+            completion_tokens = policy.max_tokens
             usage_missing = True
         cost = self._budget.record_success(
             prompt_tokens=prompt_tokens,
@@ -199,6 +217,8 @@ class FeatherlessResearchClient:
             "cost_usd": cost,
             "usage_missing": usage_missing,
             "finish_reason": finish_reason,
+            "max_tokens": policy.max_tokens,
+            "reasoning_effort": policy.reasoning_effort,
         }
 
     @staticmethod
