@@ -9,6 +9,22 @@
     "featherless_directional_replacement",
     "incumbent_featherless_consensus_filter"
   ],
+  "execution_amendment_after_invalid_glm_run": {
+    "evidence_trigger": "In the first live bakeoff, every GLM-5.3 and GLM-5.3-Flash call reached the original 220-token ceiling with finish_reason=length and no parseable JSON. Those outputs are treated as invalid transport evidence, not model-action evidence.",
+    "frozen_before_rerun": true,
+    "glm_max_tokens": 512,
+    "glm_reasoning_effort": "low",
+    "glm_template_enable_thinking": false,
+    "official_featherless_docs": [
+      "https://featherless.ai/blog/glm-5-3-flash-is-live-on-featherless",
+      "https://featherless.ai/docs/chat-template-kwargs"
+    ],
+    "scope": "Execution-format correction only. No model identities, prompts, temperature, selection dates, scoring rules, promotion gates, company-news veto, candidate policies, or holdout dates change.",
+    "unchanged_default_for_non_glm_models": {
+      "max_tokens": 220,
+      "template_enable_thinking": false
+    }
+  },
   "fallback_architecture": "Cloudflare Llama authoritative production adjudicator -> Featherless GLM independent shadow/model-risk observer -> deterministic agreement/disagreement audit -> zero Featherless execution authority.",
   "frozen_at": "2026-09-03",
   "information_boundary": {
@@ -63,9 +79,9 @@
     "historical_stock_feed": "sip",
     "holding_minutes": 60,
     "live_option_feed": "indicative",
-    "max_tokens": 220,
+    "original_max_tokens": 220,
     "raw_residual_gate": 0.01,
-    "reasoning_mode": "disabled_via_chat_template_kwargs_enable_thinking_false",
+    "reasoning_mode": "disabled_via_chat_template_kwargs_enable_thinking_false; GLM rerun additionally requests reasoning_effort=low per execution amendment",
     "temperature": 0,
     "underlying": "COIN"
   },
