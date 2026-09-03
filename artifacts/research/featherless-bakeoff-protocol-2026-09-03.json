@@ -1,0 +1,100 @@
+{
+  "budget": {
+    "cost_source": "Authenticated Featherless model-detail pricing and completion usage fields.",
+    "hard_max_spend_usd": 15.0,
+    "stop_early_when_conclusive": true,
+    "target_minimum_credit_reserve_usd": 10.0
+  },
+  "candidate_policies": [
+    "featherless_directional_replacement",
+    "incumbent_featherless_consensus_filter"
+  ],
+  "execution_amendment_after_invalid_glm_run": {
+    "evidence_trigger": "In the first live bakeoff, every GLM-5.3 and GLM-5.3-Flash call reached the original 220-token ceiling with finish_reason=length and no parseable JSON. Those outputs are treated as invalid transport evidence, not model-action evidence.",
+    "frozen_before_rerun": true,
+    "glm_max_tokens": 512,
+    "glm_reasoning_effort": "low",
+    "glm_template_enable_thinking": false,
+    "official_featherless_docs": [
+      "https://featherless.ai/blog/glm-5-3-flash-is-live-on-featherless",
+      "https://featherless.ai/docs/chat-template-kwargs"
+    ],
+    "scope": "Execution-format correction only. No model identities, prompts, temperature, selection dates, scoring rules, promotion gates, company-news veto, candidate policies, or holdout dates change.",
+    "unchanged_default_for_non_glm_models": {
+      "max_tokens": 220,
+      "template_enable_thinking": false
+    }
+  },
+  "fallback_architecture": "Cloudflare Llama authoritative production adjudicator -> Featherless GLM independent shadow/model-risk observer -> deterministic agreement/disagreement audit -> zero Featherless execution authority.",
+  "frozen_at": "2026-09-03",
+  "information_boundary": {
+    "future_outcomes_hidden_from_models": true,
+    "market_data": "Only values available by the frozen ClockCross decision boundary are supplied.",
+    "news": "Retrospective Alpaca REST news is not fed into model selection because the existing Sep-3 fidelity investigation found it did not reproduce the live MCP decision or accepted aggregate. Models receive an explicit directional-research boundary telling them not to infer company-specific news. Timestamp-capped REST news may be collected only as holdout diagnostic metadata, and the recorded Sep-3 live company-news veto remains non-overridable.",
+    "order_or_mutation_endpoints_forbidden": true
+  },
+  "model_rule": "No substitution. Non-active, plan-ineligible, missing, or request-rejected models are recorded as unavailable; gated models may be attempted when the authenticated plan reports them available.",
+  "models": [
+    "meta-llama/Llama-3.3-70B-Instruct",
+    "zai-org/GLM-5.3",
+    "zai-org/GLM-5.3-Flash",
+    "deepseek-ai/DeepSeek-V4-Flash-0731"
+  ],
+  "promotion_gates": {
+    "every_evaluated_episode_action_stable": true,
+    "holdout_must_not_collapse": true,
+    "holdout_rule": "After selecting a winner without holdout access, the three Sep 1-3 policy returns must have mean candidate return >= mean incumbent return; Sep 2 remains a deterministic threshold abstain and the recorded Sep 3 company-news veto is non-overridable.",
+    "leave_one_episode_out_min_mean_improvement_gt_zero": true,
+    "leave_one_month_out_min_mean_improvement_gt_zero": true,
+    "manual_inspection_required_before_any_production_change": true,
+    "paired_bootstrap_95pct_ci_low_gt_zero": true,
+    "paired_mean_improvement_gt_zero": true
+  },
+  "protocol_refinement_before_first_featherless_call": "Historical raw-news payloads were removed from model input before the first Featherless request, based on the already-preserved 2026-09-03 adaptive-regime finding that retrospective REST news was not a faithful production-context replay. This narrows the experiment to directional model quality and preserves the live news veto rather than scoring an invalid counterfactual.",
+  "purpose": "Test whether a Featherless adjudication policy improves ClockCross without hindsight leakage before any production authority change.",
+  "repetitions_per_episode_model": 5,
+  "scoring": {
+    "primary": "per-signal policy return difference versus incumbent, with abstain represented as zero exposure; paired 95% bootstrap CI",
+    "secondary": [
+      "trade-only hit rate",
+      "mean policy return",
+      "median policy return",
+      "leave-one-episode-out robustness",
+      "leave-one-month-out robustness",
+      "action stability",
+      "untouched holdout behavior"
+    ]
+  },
+  "selection_window": [
+    "2026-03-02",
+    "2026-08-31"
+  ],
+  "stable_action_min_votes": 4,
+  "strategy_policy_frozen": {
+    "beta_lookback_sessions": 40,
+    "cross_market_driver": "BTC/USD",
+    "decision_time_et": "09:55",
+    "exit_time_et": "10:55",
+    "historical_mean_signed_return": 0.002745696957097104,
+    "historical_stock_feed": "sip",
+    "holding_minutes": 60,
+    "live_option_feed": "indicative",
+    "original_max_tokens": 220,
+    "raw_residual_gate": 0.01,
+    "reasoning_mode": "disabled_via_chat_template_kwargs_enable_thinking_false; GLM rerun additionally requests reasoning_effort=low per execution amendment",
+    "temperature": 0,
+    "underlying": "COIN"
+  },
+  "study": "clockcross_featherless_predeclared_bakeoff",
+  "untouched_holdout": [
+    "2026-09-01",
+    "2026-09-02",
+    "2026-09-03"
+  ],
+  "final_status": {
+    "accepted_run_id": 33813521319,
+    "eligible_candidates_before_holdout": 0,
+    "holdout_evaluated": false,
+    "verdict": "fallback_shadow_architecture"
+  }
+}
