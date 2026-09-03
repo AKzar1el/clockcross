@@ -1,0 +1,45 @@
+name: TEMP Sep3 Adaptive Regime Diagnostic
+
+on:
+  push:
+    branches:
+      - research/sep3-adaptive-regime
+    paths:
+      - "scripts/research_sep3_adaptive_regime.py"
+      - ".github/workflows/_tmp-sep3-adaptive-regime.yml"
+
+permissions:
+  contents: read
+
+tasks: {}
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: competition
+    env:
+      ALPACA_API_KEY: ${{ secrets.ALPACA_COMPETITION_API_KEY }}
+      ALPACA_SECRET_KEY: ${{ secrets.ALPACA_COMPETITION_SECRET_KEY }}
+      LLM_API_KEY: ${{ secrets.CLOCKCROSS_AI_GATEWAY_BEARER }}
+      LLM_BASE_URL: https://clockcross-ai-gateway.tomi-seregi99.workers.dev/v1
+      LLM_MODEL: clockcross-cloudflare-llama-3.3-70b
+      CLOCKCROSS_ACCOUNT_ROLE: competition
+      CLOCKCROSS_ALLOW_DEV_ORDER: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --extra dev
+      - name: Run read-only adaptive-regime diagnostic
+        run: uv run python scripts/research_sep3_adaptive_regime.py
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sep3-adaptive-regime-result
+          path: artifacts/tmp-sep3-adaptive/result.json
+          if-no-files-found: warn
+          retention-days: 3
