@@ -339,6 +339,15 @@ class Scheduler:
         )
         decision = self._ai.decide(context)
         self._ledger.record_decision(episode.episode_id, decision)
+        self._ledger.record_mark(
+            episode.episode_id,
+            marked_at=now,
+            value="featherless_shadow_input",
+            payload={
+                "context": context.model_dump(mode="json"),
+                "authoritative_decision": decision.model_dump(mode="json"),
+            },
+        )
         self._ledger.transition(
             episode.episode_id,
             EpisodeState.AI_REVIEWED,
