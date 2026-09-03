@@ -167,7 +167,10 @@ def probability_backtest_overfitting(
     if blocks < 4 or blocks % 2 != 0:
         raise ValueError("blocks must be an even integer >= 4")
 
-    episode_blocks = [np.asarray(chunk, dtype=int) for chunk in np.array_split(np.arange(matrix.shape[0]), blocks)]
+    episode_blocks = [
+        np.asarray(chunk, dtype=int)
+        for chunk in np.array_split(np.arange(matrix.shape[0]), blocks)
+    ]
     half = blocks // 2
     logits: list[float] = []
     for selected_blocks in combinations(range(blocks), half):
@@ -210,7 +213,12 @@ def deflated_sharpe_probability(
 ) -> dict[str, float | int]:
     values = np.asarray(returns, dtype=float)
     if values.size < 3 or trials < 1:
-        return {"probability": 0.0, "sharpe": 0.0, "benchmark_sharpe": float("inf"), "trials": trials}
+        return {
+            "probability": 0.0,
+            "sharpe": 0.0,
+            "benchmark_sharpe": float("inf"),
+            "trials": trials,
+        }
     std = float(values.std(ddof=1))
     if not isfinite(std) or std <= np.finfo(float).eps:
         probability = 1.0 if float(values.mean()) > 0.0 else 0.0
@@ -298,7 +306,9 @@ def candidate_metrics(
 
     midpoint = max(1, len(rows) // 2)
     first_half = float(differences[:midpoint].mean())
-    second_half = float(differences[midpoint:].mean()) if midpoint < len(rows) else first_half
+    second_half = (
+        float(differences[midpoint:].mean()) if midpoint < len(rows) else first_half
+    )
 
     traded = [row.candidate_return for row in rows if row.traded]
     hit_rate = (
@@ -307,7 +317,7 @@ def candidate_metrics(
         else 0.0
     )
     latencies = np.asarray([row.latency_seconds for row in rows], dtype=float)
-    dsr = deflated_sharpe_probability(candidate, trials=trial_count)
+    dsr = deflated_sharpe_probability(candidate.tolist(), trials=trial_count)
     return {
         "episode_count": len(rows),
         "trade_count": len(traded),
