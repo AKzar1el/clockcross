@@ -1,7 +1,9 @@
 from pathlib import Path
 
 
-WORKFLOW = Path(__file__).resolve().parents[2] / ".github/workflows/featherless-bakeoff.yml"
+ROOT = Path(__file__).resolve().parents[2]
+WORKFLOW = ROOT / ".github/workflows/featherless-bakeoff.yml"
+PROVIDER = ROOT / "ops/featherless_bakeoff/provider.py"
 
 
 def test_featherless_workflow_reuses_competition_secret_boundary() -> None:
@@ -21,3 +23,11 @@ def test_featherless_workflow_does_not_leak_secrets_into_test_process() -> None:
     assert text.count("secrets.ALPACA_COMPETITION_SECRET_KEY") == 2
     assert text.count("secrets.CLOCKCROSS_AI_GATEWAY_BEARER") == 2
     assert text.count("secrets.FEATHERLESS_API_KEY") == 2
+
+
+def test_featherless_provider_applies_model_specific_generation_policy() -> None:
+    text = PROVIDER.read_text()
+    assert "policy = generation_policy(model)" in text
+    assert '"max_tokens": policy.max_tokens' in text
+    assert '"enable_thinking": not policy.disable_thinking' in text
+    assert 'body["reasoning_effort"] = policy.reasoning_effort' in text
