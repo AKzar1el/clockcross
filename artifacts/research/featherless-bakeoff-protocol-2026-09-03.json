@@ -14,7 +14,7 @@
   "information_boundary": {
     "future_outcomes_hidden_from_models": true,
     "market_data": "Only values available by the frozen ClockCross decision boundary are supplied.",
-    "news": "Historical Alpaca COIN news is queried over the trailing 24 hours with an explicit end timestamp of 09:55 ET and limited to the 10 latest items. Sep-3 live MCP raw payload was not preserved, so no claim of exact MCP payload recreation is permitted.",
+    "news": "Retrospective Alpaca REST news is not fed into model selection because the existing Sep-3 fidelity investigation found it did not reproduce the live MCP decision or accepted aggregate. Models receive an explicit directional-research boundary telling them not to infer company-specific news. Timestamp-capped REST news may be collected only as holdout diagnostic metadata, and the recorded Sep-3 live company-news veto remains non-overridable.",
     "order_or_mutation_endpoints_forbidden": true
   },
   "model_rule": "No substitution. Non-active, plan-ineligible, missing, or request-rejected models are recorded as unavailable; gated models may be attempted when the authenticated plan reports them available.",
@@ -34,6 +34,7 @@
     "paired_bootstrap_95pct_ci_low_gt_zero": true,
     "paired_mean_improvement_gt_zero": true
   },
+  "protocol_refinement_before_first_featherless_call": "Historical raw-news payloads were removed from model input before the first Featherless request, based on the already-preserved 2026-09-03 adaptive-regime finding that retrospective REST news was not a faithful production-context replay. This narrows the experiment to directional model quality and preserves the live news veto rather than scoring an invalid counterfactual.",
   "purpose": "Test whether a Featherless adjudication policy improves ClockCross without hindsight leakage before any production authority change.",
   "repetitions_per_episode_model": 5,
   "scoring": {
@@ -64,6 +65,7 @@
     "live_option_feed": "indicative",
     "max_tokens": 220,
     "raw_residual_gate": 0.01,
+    "reasoning_mode": "disabled_via_chat_template_kwargs_enable_thinking_false",
     "temperature": 0,
     "underlying": "COIN"
   },
