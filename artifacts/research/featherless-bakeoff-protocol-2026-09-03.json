@@ -90,5 +90,11 @@
     "2026-09-01",
     "2026-09-02",
     "2026-09-03"
-  ]
+  ],
+  "final_status": {
+    "accepted_run_id": 33813521319,
+    "eligible_candidates_before_holdout": 0,
+    "holdout_evaluated": false,
+    "verdict": "fallback_shadow_architecture"
+  }
 }
