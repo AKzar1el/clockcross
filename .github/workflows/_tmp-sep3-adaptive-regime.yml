@@ -11,8 +11,6 @@ on:
 permissions:
   contents: read
 
-tasks: {}
-
 jobs:
   diagnostic:
     runs-on: ubuntu-latest
