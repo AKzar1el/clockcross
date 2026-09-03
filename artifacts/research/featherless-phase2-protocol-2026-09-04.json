@@ -1,0 +1,133 @@
+{
+  "study": "clockcross_featherless_phase2_predeclared_search",
+  "frozen_date": "2026-09-04",
+  "purpose": "Broaden Featherless model research without searching until a profitable-looking backtest appears. A candidate may only advance if it clears every frozen robustness and multiple-testing gate before the untouched Sep 1-3 holdout is loaded.",
+  "production_policy_during_research": "unchanged",
+  "information_boundary": {
+    "future_60m_returns_hidden_from_models": true,
+    "historical_raw_rest_news_excluded_from_model_input": true,
+    "reason": "Prior ClockCross work found retrospective Alpaca REST news did not faithfully recreate the live MCP company-news context.",
+    "order_or_portfolio_mutation_forbidden": true,
+    "holdout_not_loaded_until_selection_winner_exists": true
+  },
+  "phase2_models": [
+    "Qwen/Qwen3.8-Flash-Next",
+    "moonshotai/Kimi-K3",
+    "deepseek-ai/DeepSeek-V4-Pro",
+    "MiniMaxAI/MiniMax-M3",
+    "openai/gpt-oss-120b",
+    "google/gemma-4-31B-it",
+    "SUFE-AIFLM-Lab/Fin-R1",
+    "NousResearch/DeepHermes-Financial-Fundamentals-Prediction-Specialist-Atropos"
+  ],
+  "prior_correction_model": {
+    "model": "zai-org/GLM-5.3",
+    "purpose": "Fresh return series for the multiple-hypothesis correction universe; this model is not eligible for Phase-2 promotion because Phase-1 already rejected production authority.",
+    "known_execution_amendment": {
+      "max_tokens": 512,
+      "reasoning_effort": "low",
+      "enable_thinking": false
+    }
+  },
+  "generation_policy": {
+    "temperature": 0,
+    "max_tokens": 512,
+    "enable_thinking": false,
+    "model_specific_prompt_engineering": false,
+    "same_clockcross_system_and_user_prompt_contract": true,
+    "repetitions_per_historical_episode": 5
+  },
+  "contract_screen": {
+    "historical_outcomes_loaded": false,
+    "synthetic_contexts": 3,
+    "repetitions_per_context": 3,
+    "required_schema_valid_calls": "9/9",
+    "required_action_consistency": "3/3 identical action within every synthetic context",
+    "latency_p95_max_seconds": 12.0,
+    "latency_absolute_max_seconds": 20.0,
+    "failed_models_do_not_enter_historical_selection": true
+  },
+  "selection": {
+    "start": "2026-03-02",
+    "end": "2026-08-31",
+    "expected_signal_episodes": 38,
+    "beta_lookback_completed_sessions": 40,
+    "residual_gate": 0.01,
+    "decision_time_et": "09:55",
+    "exit_time_et": "10:55",
+    "holding_minutes": 60,
+    "underlying": "COIN",
+    "cross_market_driver": "BTC/USD"
+  },
+  "policy_families": {
+    "individual_direct_replacement": "Each contract-qualified model supplies the continuation/reversion/abstain action while the incumbent company-news veto remains non-overridable.",
+    "individual_incumbent_consensus": "Trade only when the incumbent and contract-qualified Featherless model agree on a non-abstain action.",
+    "fixed_frontier_ensemble": {
+      "members": [
+        "Qwen/Qwen3.8-Flash-Next",
+        "moonshotai/Kimi-K3",
+        "deepseek-ai/DeepSeek-V4-Pro",
+        "MiniMaxAI/MiniMax-M3",
+        "google/gemma-4-31B-it"
+      ],
+      "availability_rule": "All five frozen members must clear the contract screen and complete the historical selection.",
+      "round_rule": "For each of five repeated rounds, at least three of five models must agree on the same non-abstain action; otherwise that round abstains.",
+      "episode_stability": "At least four of five ensemble rounds must yield the same action.",
+      "execution_latency_proxy": "Maximum constituent latency, corresponding to a future parallel implementation rather than sequential sum."
+    },
+    "additional_threshold_or_window_search": false
+  },
+  "selection_gates_per_candidate": {
+    "paired_mean_improvement_gt_zero": true,
+    "moving_block_bootstrap_95pct_ci_low_gt_zero": true,
+    "moving_block_length_signal_episodes": 3,
+    "leave_one_episode_out_min_improvement_gt_zero": true,
+    "leave_one_month_out_min_improvement_gt_zero": true,
+    "chronological_first_half_improvement_gt_zero": true,
+    "chronological_second_half_improvement_gt_zero": true,
+    "all_historical_episode_actions_stable": true,
+    "all_historical_calls_schema_valid": true,
+    "historical_latency_p95_max_seconds": 12.0,
+    "historical_latency_absolute_max_seconds": 20.0,
+    "deflated_sharpe_style_probability_min": 0.95
+  },
+  "multiple_testing": {
+    "prior_tested_policy_slots_counted": 8,
+    "phase2_predeclared_policy_slots": 17,
+    "deflated_sharpe_trial_count": 25,
+    "white_reality_check": {
+      "moving_block_bootstrap_samples": 20000,
+      "moving_block_length_signal_episodes": 3,
+      "candidate_adjusted_p_value_must_be_below": 0.05
+    },
+    "probability_of_backtest_overfitting": {
+      "method": "CSCV-style six contiguous blocks using candidate policy mean return as the ranking statistic",
+      "max_pbo": 0.2
+    },
+    "references": [
+      "Halbert White, A Reality Check for Data Snooping, Econometrica 68(5), 2000",
+      "Bailey et al., The Probability of Backtest Overfitting",
+      "Bailey and Lopez de Prado, The Deflated Sharpe Ratio"
+    ]
+  },
+  "untouched_holdout": {
+    "dates": ["2026-09-01", "2026-09-02", "2026-09-03"],
+    "loaded_only_after_all_selection_gates": true,
+    "sep2_rule": "Residual below 1% remains deterministic threshold abstain.",
+    "sep3_rule": "Recorded production company-news veto remains non-overridable.",
+    "pass_rule": "All holdout model actions must be stable and candidate mean policy return must be at least incumbent mean policy return."
+  },
+  "post_holdout_required_before_production": [
+    "honest historical option-price/trade-proxy monetization replay using only actually available historical data",
+    "provider/runtime soak including schema-failure rate, latency, retry/failure behavior, restart/idempotency, and competition-environment dry run",
+    "manual inspection of why the candidate wins",
+    "separate explicit approval for any production-policy change"
+  ],
+  "budget": {
+    "hard_additional_featherless_spend_usd": 8.0,
+    "stop_early_when_conclusive": true,
+    "reserve_goal_after_research_usd": "at least 5-10 when account balance permits",
+    "provider_usage_and_model_pricing_are_authoritative_for_accounting": true
+  },
+  "fallback": "Cloudflare Llama remains the authoritative adjudicator; Featherless GLM-5.3 remains a non-blocking shadow/model-risk observer; all deterministic risk and execution policy remains unchanged."
+}
