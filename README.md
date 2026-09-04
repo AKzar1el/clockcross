@@ -6,7 +6,7 @@
 
 **An autonomous AI options agent that measures crypto-to-equity repricing gaps, validates them chronologically, and expresses only evidence-backed COIN signals through defined-risk Alpaca spreads.**
 
-ClockCross was built for the **Alpaca AI Trading Agents Hackathon**. It uses Alpaca's paper-trading stack, Alpaca MCP, and an authenticated Cloudflare Workers AI gateway backed by a schema-bounded Llama 3.3 70B model while keeping trade construction, risk, order lifecycle, and idempotency deterministic.
+ClockCross was built for the **Alpaca AI Trading Agents Hackathon**. It uses Alpaca's paper-trading stack, Alpaca MCP, an authenticated Cloudflare Workers AI gateway backed by a schema-bounded Llama 3.3 70B model, and a non-blocking Featherless GLM-5.3 shadow observer while keeping trade construction, risk, order lifecycle, and idempotency deterministic.
 
 > Paper trading is a simulation. Nothing in this repository is investment advice, and the research results do not imply future performance.
 
@@ -54,6 +54,12 @@ The approved mutation therefore makes **COIN the only execution-eligible underly
 
 A later literal day-by-day replay of the current policy used the actual Alpaca market calendar from **2026-03-02 through 2026-09-01**: 128 market days, 39 residual signals, and 36 AI-directed trades. Raw continuation was **22-17 with +15.9 bps mean 60-minute directional COIN return**; the current bounded AI policy was **21-15 with +50.7 bps mean directional return** and three abstentions. The same AI was negative in June and July but strongly positive in May and August, so the repository preserves the regime weakness instead of hiding it. A three-repeat stability pass across all 23 June–Sep signal contexts produced **zero action flips across 69 deployed-gateway calls**. Full methodology and limitations are in [`docs/research/2026-09-01-end-to-end-backtest.md`](docs/research/2026-09-01-end-to-end-backtest.md).
 
+### Featherless model-risk research
+
+ClockCross also ran two predeclared Featherless model-selection studies before the final competition session. The first phase found an apparent **+11.74 bps** improvement from a GLM-5.3 consensus filter, but the result failed the frozen replication: the same policy measured **-3.31 bps** versus the incumbent in Phase 2. The broader Phase-2 search tested Qwen, Kimi, GPT-OSS, Gemma, Fin-R1, GLM-5.3 and other contract-screen candidates across the same 38 historical signal episodes with repeated calls. **No candidate beat the incumbent mean policy return or cleared the multiple-testing/robustness promotion gates.**
+
+That negative result is preserved rather than tuned away. Featherless therefore remains a **shadow/model-risk observer only**: GLM-5.3 sees the same bounded context after the authoritative path is resolved and records agreement/disagreement metadata, but it cannot create, veto, reverse, resize, or delay a trade. See [`docs/research/2026-09-04-featherless-phase2.md`](docs/research/2026-09-04-featherless-phase2.md) and [`artifacts/research/featherless-phase2-2026-09-04.json`](artifacts/research/featherless-phase2-2026-09-04.json).
+
 Evidence is committed under [`artifacts/research/`](artifacts/research/) and [`docs/research/`](docs/research/).
 
 ## AI authority is deliberately narrow
@@ -66,7 +72,9 @@ The model sees a schema-bounded context only after deterministic evidence and op
 
 It cannot choose a new symbol, invent a contract, change DTE, change position sizing, bypass stale quotes, override buying power, exceed portfolio risk, choose an exit, or submit an order directly. Malformed output, transport errors, company-specific news, or ambiguous context fail closed to `abstain`.
 
-The AI endpoint is a small authenticated Cloudflare Worker at `clockcross-ai-gateway.tomi-seregi99.workers.dev`. The Worker fixes the provider model to Cloudflare's Llama 3.3 70B fast variant, requests the exact ClockCross JSON schema at the provider boundary, validates it again, and returns the OpenAI-compatible response shape consumed by the Python adjudicator. The adjudicator then performs its own Pydantic validation, giving the decision path two independent schema checks.
+The authoritative AI endpoint is a small authenticated Cloudflare Worker at `clockcross-ai-gateway.tomi-seregi99.workers.dev`. The Worker fixes the provider model to Cloudflare's Llama 3.3 70B fast variant, requests the exact ClockCross JSON schema at the provider boundary, validates it again, and returns the OpenAI-compatible response shape consumed by the Python adjudicator. The adjudicator then performs its own Pydantic validation, giving the decision path two independent schema checks.
+
+Featherless is intentionally outside that authority boundary. When `FEATHERLESS_API_KEY` is available, ClockCross can send the same bounded context to a fixed GLM-5.3 shadow observer after the authoritative path is already resolved. Its output is validated and reduced to audit metadata only; provider failure or disagreement cannot block or mutate execution.
 
 Alpaca MCP is **read-only inside ClockCross**: trading toolsets are disabled. Atomic multi-leg execution uses Alpaca's Trading REST API because deterministic request validation and `client_order_id` reconciliation are easier to audit there.
 
@@ -116,7 +124,7 @@ uv sync --extra dev
 cp .env.example .env
 ```
 
-Set development-paper Alpaca credentials plus the gateway bearer in `LLM_API_KEY`. The checked-in URL/model defaults already point to the verified ClockCross Cloudflare gateway; no AI credential is committed. Never use the final hackathon account for destructive integration tests.
+Set development-paper Alpaca credentials plus the gateway bearer in `LLM_API_KEY`. The checked-in URL/model defaults already point to the verified ClockCross Cloudflare gateway; no AI credential is committed. `FEATHERLESS_API_KEY` is optional and enables the non-blocking shadow observer only. Never use the final hackathon account for destructive integration tests.
 
 Research:
 
@@ -159,7 +167,7 @@ The complete competition lifecycle is:
 uv run clockcross competition-session --date YYYY-MM-DD
 ```
 
-The checked-in `.github/workflows/competition-runtime.yml` is the event-bounded launcher on `main`. Automatic cron scheduling was removed after unreliable delayed/dropped GitHub scheduled runs. The canonical trigger is now a path-scoped push changing `ops/competition-run-now`; `workflow_dispatch` is the recovery path. The workflow still rejects dates outside Aug 31 and Sep 1–4, restores prior SQLite state, performs read-only preflight first, and then executes `competition-session`. ClockCross itself remains the final time authority and refuses new entries after 10:05 ET.
+The checked-in `.github/workflows/competition-runtime.yml` is the event-bounded GitHub runtime on `main`. It keeps the path-scoped `ops/competition-run-now` push trigger and manual `workflow_dispatch`, plus **09:35 ET and 09:45 ET GitHub schedule fallbacks** for the final competition sessions. For Sep 4, a separate Worker under `deploy/cloudflare-competition-trigger/` provides an independent **09:30 ET Cloudflare Cron primary trigger** that dispatches the GitHub workflow with the exact competition date. The Worker has a hard `2026-09-04` date/cron guard and disables Cloudflare retry-on-ambiguity; the GitHub schedules remain the fallback plane. ClockCross itself remains the final time authority and refuses new entries after 10:05 ET.
 
 Crash recovery is intentionally separate and cannot compute or submit a new signal:
 
@@ -183,7 +191,7 @@ uv run ruff check .
 uv run mypy src/clockcross
 ```
 
-The suite covers leakage boundaries, option-chain normalization, directional spread selection, minimum short-leg delta and minimum net-delta abstention, risk-derived constructor budgets, AI fail-closed behavior, Cloudflare gateway contract constraints, risk caps, state-machine legality, SQLite idempotency, opening/closing order uncertainty, exact-contract exits, competition timing, restart-safe lifecycle recovery, workflow secret isolation, public API redaction, live-signal freezing, account-role safeguards, read-only external preflight, and repository secret scanning.
+The suite covers leakage boundaries, option-chain normalization, directional spread selection, minimum short-leg delta and minimum net-delta abstention, risk-derived constructor budgets, AI fail-closed behavior, Cloudflare gateway contract constraints, Featherless shadow zero-authority behavior, risk caps, state-machine legality, SQLite idempotency, opening/closing order uncertainty, exact-contract exits, competition timing, restart-safe lifecycle recovery, workflow secret isolation, public API redaction, live-signal freezing, account-role safeguards, read-only external preflight, and repository secret scanning.
 
 ## Project documents
 
@@ -194,6 +202,7 @@ The suite covers leakage boundaries, option-chain normalization, directional spr
 - [`docs/research/2026-08-29-initial-alpaca-run.md`](docs/research/2026-08-29-initial-alpaca-run.md) — immutable first-run interpretation
 - [`docs/research/2026-08-29-live-signal-policy.json`](docs/research/2026-08-29-live-signal-policy.json) — frozen live policy
 - [`docs/research/2026-09-01-end-to-end-backtest.md`](docs/research/2026-09-01-end-to-end-backtest.md) — literal daily replay, six-month evidence, AI stability, option-price limitations, and constructor hardening
+- [`docs/research/2026-09-04-featherless-phase2.md`](docs/research/2026-09-04-featherless-phase2.md) — broader Featherless replication/search and no-promotion verdict
 
 ## License
 
