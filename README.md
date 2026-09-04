@@ -167,7 +167,7 @@ The complete competition lifecycle is:
 uv run clockcross competition-session --date YYYY-MM-DD
 ```
 
-The checked-in `.github/workflows/competition-runtime.yml` is the event-bounded GitHub runtime on `main`. It keeps the path-scoped `ops/competition-run-now` push trigger and manual `workflow_dispatch`, plus **09:35 ET and 09:45 ET GitHub schedule fallbacks** for the final competition sessions. For Sep 4, a separate Worker under `deploy/cloudflare-competition-trigger/` provides an independent **09:30 ET Cloudflare Cron primary trigger** that dispatches the GitHub workflow with the exact competition date. The Worker has a hard `2026-09-04` date/cron guard and disables Cloudflare retry-on-ambiguity; the GitHub schedules remain the fallback plane. ClockCross itself remains the final time authority and refuses new entries after 10:05 ET.
+The checked-in `.github/workflows/competition-runtime.yml` is the event-bounded GitHub runtime on `main`. It keeps the path-scoped `ops/competition-run-now` push trigger and manual `workflow_dispatch`, plus **09:35 ET and 09:45 ET GitHub schedule fallbacks** for the final competition sessions. The repository also contains a separate Worker under `deploy/cloudflare-competition-trigger/` designed as an independent **09:30 ET Cloudflare Cron primary trigger** for Sep 4; it dispatches the GitHub workflow with the exact competition date, has a hard `2026-09-04` date/cron guard, and disables Cloudflare retry-on-ambiguity. Deployment/secret configuration is an external operational step and is not inferred from the checked-in code. ClockCross itself remains the final time authority and refuses new entries after 10:05 ET.
 
 Crash recovery is intentionally separate and cannot compute or submit a new signal:
 
