@@ -34,7 +34,7 @@ Competition entries are restricted to 09:55–10:05 ET. An opening Alpaca MLeg g
 
 The first real competition episode ran on **2026-09-01**: the dedicated account passed preflight, the opening MLeg filled, the deterministic research-horizon close filled on its first close attempt, and the persisted lifecycle finished `CLOSED`. No unresolved opening/closing order remained and no undocumented manual trade-selection intervention occurred. This remains paper trading; final competition equity/P&L must come from the dedicated event account rather than from research diagnostics or proxy returns.
 
-The final-session launcher also separates scheduling failure domains. A one-purpose Cloudflare Worker provides the Sep 4 09:30 ET primary Cron trigger and dispatches the GitHub competition workflow. GitHub retains 09:35 ET and 09:45 ET schedule fallbacks, plus path-scoped push and manual `workflow_dispatch` recovery. ClockCross remains the final timing authority inside the workflow.
+The repository also contains an independent final-session launcher design: a one-purpose Cloudflare Worker scheduled for Sep 4 at 09:30 ET that dispatches the GitHub competition workflow. GitHub retains 09:35 ET and 09:45 ET schedule fallbacks, plus path-scoped push and manual `workflow_dispatch` recovery. The Worker code has an exact-date guard and no-retry behavior, but deployment and secret configuration are external operational state and must be verified separately rather than inferred from source control.
 
 The public judge demo is deliberately static and zero-secret. It exposes the falsification record, six-month replay, losing regimes, backtest-discovered constructor defect, bounded fix, Featherless non-promotion evidence, Alpaca integration, deterministic risk envelope, and verified competition lifecycle without exposing trading controls, credentials, or a live account connection.
 
@@ -150,8 +150,8 @@ The differentiation is not “another AI trading dashboard.” It is a system th
    Residual → confirmation → option feasibility → read-only Alpaca MCP → bounded Cloudflare AI → deterministic constructor/risk → Alpaca MLeg → durable lifecycle. Explicitly show that neither AI can directly submit an order.
 7. **3:15–3:45 — Real competition episode**  
    Show 2026-09-01 preflight, opening MLeg fill, deterministic 10:55 exact-contract close, and terminal `CLOSED` state.
-8. **3:45–4:10 — Reliability + final-session launcher**  
-   Show Cloudflare Cron primary → GitHub competition workflow, GitHub scheduled fallbacks, durable SQLite restoration, idempotent client IDs, and deterministic recovery.
+8. **3:45–4:10 — Reliability**  
+   Show the checked-in independent Cloudflare Cron launcher design, GitHub scheduled fallbacks, durable SQLite restoration, idempotent client IDs, and deterministic recovery. Only call the Cloudflare trigger “deployed” in the video if deployment/secret state has been verified externally.
 9. **4:10–4:30 — Close**  
    “ClockCross is designed to reject weak evidence, expose losing regimes, and keep AI inside a deterministic defined-risk envelope—even when the more exciting model result looks better at first.”
 
@@ -183,7 +183,7 @@ Keep the deck concise; the video should do most of the storytelling.
 7. **Autonomous system** — end-to-end architecture diagram including Cloudflare authoritative AI and Featherless shadow-only path.
 8. **AI is bounded** — continuation / reversion / abstain; deterministic authority boundaries.
 9. **Defined-risk lifecycle** — 7–21 DTE COIN debit spreads, delta gates, risk caps, bounded fill, 10:55 exit, idempotency/recovery.
-10. **Alpaca + competition proof** — historical/market data, read-only MCP, Trading API MLegs, Sep 1 `CLOSED` lifecycle, independent Cloudflare launch trigger, final account equity/P&L when available.
+10. **Alpaca + competition proof** — historical/market data, read-only MCP, Trading API MLegs, Sep 1 `CLOSED` lifecycle, independent-launcher design, final account equity/P&L when available.
 
 ## Submission-media constraints
 
@@ -210,6 +210,6 @@ The Lablab hackathon-guidelines article additionally says the video upload/link 
 
 The production trading policy is frozen. The Featherless studies did not earn a trading-authority change; GLM-5.3 remains shadow-only. The 0.10 short-delta floor remains the only promoted structural constructor correction from the post-episode replay. Signal, AI action set, COIN-only universe, 7–21 DTE window, one-contract sizing, 1%/5% defined-loss envelope, 09:55–10:05 decision window, MLeg lifecycle, and 10:55 ET exit remain unchanged.
 
-The final-session launcher is **Cloudflare Cron primary → GitHub `workflow_dispatch`**, with GitHub 09:35/09:45 ET schedules retained as fallback triggers. Path-scoped `ops/competition-run-now` push and manual dispatch remain recovery paths. The application itself is still the final timing authority.
+The repository contains the intended final-session scheduling topology: **Cloudflare Cron primary design → GitHub `workflow_dispatch`**, with GitHub 09:35/09:45 ET schedules retained as fallback triggers. Path-scoped `ops/competition-run-now` push and manual dispatch remain recovery paths. Do not claim the Cloudflare Worker is live unless its deployment and secret configuration have been verified outside Git.
 
 From this point, stop strategy/model engineering unless an actual correctness defect is discovered. The remaining competition work is presentation and submission: capture final evidence, record/export the video, build the pitch deck, enter the Lablab fields, and submit before the recorded competition deadline.
