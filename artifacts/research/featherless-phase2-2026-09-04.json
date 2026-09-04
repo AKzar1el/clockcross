@@ -1,0 +1,88 @@
+{
+  "study": "clockcross_featherless_phase2_predeclared_search",
+  "decision": "no_production_authority_change",
+  "accepted_architecture": "cloudflare_authoritative_featherless_glm53_shadow_only",
+  "protocol_sha256": "3bddffbb005ba6752243f50ffde0a8a3f216482689c4c4cd59a5b0ba1f82ae9f",
+  "selection_window": ["2026-03-02", "2026-08-31"],
+  "selection_signal_count": 38,
+  "untouched_holdout": ["2026-09-01", "2026-09-02", "2026-09-03"],
+  "holdout_evaluated": false,
+  "holdout_reason": "no candidate cleared every predeclared selection gate",
+  "accepted_run": {
+    "github_actions_run_id": 33819396652,
+    "head_sha": "2ed416ec80c546e1ec1f2c5250cc5264dcb85457",
+    "artifact_id": 9919245155,
+    "artifact_zip_sha256": "ca8de03ee70ea4af3df42a3ca6400cf670c9c446368060aed9bb6331a75438ce",
+    "tests": "231 passed, 1 skipped",
+    "accounted_featherless_spend_usd": 1.0129864699999984
+  },
+  "budget": {
+    "hard_additional_max_usd": 8.0,
+    "accounted_spend_usd": 1.0129864699999984,
+    "stopped": false
+  },
+  "contract_screen": {
+    "Qwen/Qwen3.8-Flash-Next": {"passed": true, "schema_valid": true, "unanimous": true, "p95_seconds": 1.5437951904000016, "max_seconds": 1.6209177340000025},
+    "moonshotai/Kimi-K3": {"passed": true, "schema_valid": true, "unanimous": true, "p95_seconds": 5.534085433400006, "max_seconds": 5.664738923000002},
+    "deepseek-ai/DeepSeek-V4-Pro": {"passed": false, "schema_valid": true, "unanimous": false, "p95_seconds": 10.805476018799995, "max_seconds": 14.593597442000004, "recorded_availability_tier": "offline"},
+    "MiniMaxAI/MiniMax-M3": {"passed": false, "schema_valid": false, "unanimous": true, "p95_seconds": 5.6084430677999935, "max_seconds": 5.758807878999988, "failure": "512-token responses ended with finish_reason=length and no valid strict JSON"},
+    "openai/gpt-oss-120b": {"passed": true, "schema_valid": true, "unanimous": true, "p95_seconds": 1.7967144171999905, "max_seconds": 1.8464357499999835},
+    "google/gemma-4-31B-it": {"passed": true, "schema_valid": true, "unanimous": true, "p95_seconds": 6.302100831799987, "max_seconds": 6.459163762999992},
+    "SUFE-AIFLM-Lab/Fin-R1": {"passed": true, "schema_valid": true, "unanimous": true, "p95_seconds": 7.31644678959999, "max_seconds": 8.287566013999992},
+    "NousResearch/DeepHermes-Financial-Fundamentals-Prediction-Specialist-Atropos": {"passed": false, "schema_valid": false, "unanimous": false, "p95_seconds": 15.931253441799978, "max_seconds": 19.42013930899998},
+    "zai-org/GLM-5.3": {"passed": true, "promotion_eligible": false, "schema_valid": true, "unanimous": true, "p95_seconds": 3.8633002268000154, "max_seconds": 4.06451955}
+  },
+  "historical_stability": {
+    "Qwen/Qwen3.8-Flash-Next": {"stable_episodes": 37, "all_valid_episodes": 36, "valid_calls": 186, "total_calls": 190},
+    "moonshotai/Kimi-K3": {"stable_episodes": 35, "all_valid_episodes": 38, "valid_calls": 190, "total_calls": 190},
+    "openai/gpt-oss-120b": {"stable_episodes": 27, "all_valid_episodes": 24, "valid_calls": 153, "total_calls": 190},
+    "google/gemma-4-31B-it": {"stable_episodes": 38, "all_valid_episodes": 38, "valid_calls": 190, "total_calls": 190},
+    "SUFE-AIFLM-Lab/Fin-R1": {"stable_episodes": 37, "all_valid_episodes": 37, "valid_calls": 186, "total_calls": 190},
+    "zai-org/GLM-5.3": {"stable_episodes": 23, "all_valid_episodes": 38, "valid_calls": 190, "total_calls": 190}
+  },
+  "policy_results": {
+    "incumbent_mean_policy_return": 0.003137654358508961,
+    "incumbent_mean_policy_return_bps": 31.37654358508961,
+    "Qwen/Qwen3.8-Flash-Next": {"direct_mean_improvement_bps": -28.411635668697823, "consensus_mean_improvement_bps": -20.12027213207064},
+    "moonshotai/Kimi-K3": {"direct_mean_improvement_bps": -37.52249515802556, "consensus_mean_improvement_bps": -29.231131621398374},
+    "openai/gpt-oss-120b": {"direct_mean_improvement_bps": -26.52362389135629, "consensus_mean_improvement_bps": -25.046896409599093},
+    "google/gemma-4-31B-it": {"direct_mean_improvement_bps": -11.393305749610844, "consensus_mean_improvement_bps": -3.118135145280868, "consensus_candidate_mean_return_bps": 28.25840843980874, "consensus_stable_episodes": 38, "consensus_valid_calls": 190, "historical_p95_seconds": 16.525535045750054},
+    "SUFE-AIFLM-Lab/Fin-R1": {"direct_mean_improvement_bps": -23.490926583418576, "consensus_mean_improvement_bps": -9.025275084092746},
+    "zai-org/GLM-5.3": {"promotion_eligible": false, "direct_mean_improvement_bps": -1.3724136272795433, "consensus_mean_improvement_bps": -3.3085414301274233}
+  },
+  "search_corrections": {
+    "total_policy_trials_counted": 25,
+    "white_reality_check": {"observed_best_mean_improvement_bps": -1.3724136272795433, "p_value": 0.9196040197990101},
+    "cscv_style_pbo": {"pbo": 0.7, "splits": 20, "median_logit": -0.6404669227310321},
+    "candidates_passing_base_gates": 0,
+    "candidates_passing_multiple_testing": 0,
+    "candidates_passing_full_selection": 0
+  },
+  "frontier_ensemble": {
+    "predeclared_members": ["Qwen/Qwen3.8-Flash-Next", "moonshotai/Kimi-K3", "deepseek-ai/DeepSeek-V4-Pro", "MiniMaxAI/MiniMax-M3", "google/gemma-4-31B-it"],
+    "evaluated": false,
+    "reason": "not all predeclared members passed the frozen contract screen; membership was not changed after observing contract results"
+  },
+  "glm53_replication": {
+    "phase1_consensus_mean_improvement_bps": 11.738393892335558,
+    "phase1_stable_episodes": 26,
+    "phase2_consensus_mean_improvement_bps": -3.3085414301274233,
+    "phase2_direct_mean_improvement_bps": -1.3724136272795433,
+    "phase2_stable_episodes": 23,
+    "effective_action_or_stability_changed_episodes": 10,
+    "changed_dates": ["2026-03-02", "2026-03-04", "2026-04-06", "2026-04-28", "2026-05-05", "2026-06-01", "2026-06-08", "2026-06-18", "2026-07-16", "2026-07-29"],
+    "interpretation": "the Phase-1 apparent GLM-5.3 edge did not replicate under a fresh frozen rerun, strengthening the case against promotion and for shadow-only use"
+  },
+  "verdict": {
+    "winner_before_holdout": null,
+    "best_observed_candidate": "zai-org/GLM-5.3::direct_replacement (prior correction control, not promotion eligible)",
+    "best_new_candidate": "google/gemma-4-31B-it::incumbent_consensus",
+    "conclusion": "fallback_existing_production_policy"
+  },
+  "limitations": [
+    "Historical raw Alpaca REST news was excluded because prior ClockCross research showed it does not faithfully reproduce the live MCP news context.",
+    "The primary target is paired 60-minute underlying policy return, not invented historical option BBO/Greeks or exact options P&L.",
+    "No selection winner existed, so the Sep 1-3 holdout was not opened and no monetization or production-soak promotion stage was triggered.",
+    "No trading mutation client was instantiated."
+  ]
+}
